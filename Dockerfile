@@ -1,6 +1,8 @@
 FROM debian:bookworm-slim
 
 ARG TARGETARCH
+ARG UBLOCK_VERSION=1.71.0
+ARG UBLOCK_SHA256=47f788a1fc2c014830b30bb0ef9588615701b98c5265fb19b8cf4ba779849feb
 
 ENV DEBIAN_FRONTEND=noninteractive \
     RDP_USER=browser \
@@ -37,8 +39,13 @@ RUN apt-get update \
     && tar -xJf /tmp/firefox.tar.xz -C /opt \
     && ln -s /opt/firefox/firefox /usr/local/bin/firefox \
     && rm -f /tmp/firefox.tar.xz \
-    && mkdir -p /opt/firefox/distribution \
-    && printf '%s\n' '{"policies":{"Extensions":{"Install":["https://addons.mozilla.org/firefox/downloads/latest/ublock-origin/latest.xpi"]},"DisableFeedbackCommands":true,"DisableFirefoxStudies":true,"DisablePocket":true,"DisableTelemetry":true,"DisableFirefoxAccounts":true,"NetworkPrediction":false,"NoDefaultBookmarks":true,"PasswordManagerEnabled":false,"RequestedLocales":["en-US"],"UserMessaging":{"ExtensionRecommendations":false,"FeatureRecommendations":false,"SkipOnboarding":true,"MoreFromMozilla":false,"FirefoxLabs":false},"HardwareAcceleration":false,"BackgroundApp":false,"DontCheckDefaultBrowser":true,"DisableBuiltinPDF":false,"DisableFormHistory":true,"OfferToSaveLogins":false,"OverrideFirstRunPage":"","OverridePostUpdatePage":""}}' > /opt/firefox/distribution/policies.json \
+    && mkdir -p /opt/firefox/distribution/extensions \
+    && wget -O "/opt/firefox/distribution/extensions/uBlock0@raymondhill.net.xpi" \
+         "https://github.com/gorhill/uBlock/releases/download/${UBLOCK_VERSION}/uBlock0_${UBLOCK_VERSION}.firefox.signed.xpi" \
+    && if [ -n "$UBLOCK_SHA256" ]; then \
+         echo "$UBLOCK_SHA256  /opt/firefox/distribution/extensions/uBlock0@raymondhill.net.xpi" | sha256sum -c -; \
+       fi \
+    && printf '%s\n' '{"policies":{"Extensions":{"Locked":["uBlock0@raymondhill.net"]},"DisableFeedbackCommands":true,"DisableFirefoxStudies":true,"DisablePocket":true,"DisableTelemetry":true,"DisableFirefoxAccounts":true,"NetworkPrediction":false,"NoDefaultBookmarks":true,"PasswordManagerEnabled":false,"RequestedLocales":["en-US"],"UserMessaging":{"ExtensionRecommendations":false,"FeatureRecommendations":false,"SkipOnboarding":true,"MoreFromMozilla":false,"FirefoxLabs":false},"HardwareAcceleration":false,"BackgroundApp":false,"DontCheckDefaultBrowser":true,"DisableBuiltinPDF":false,"DisableFormHistory":true,"OfferToSaveLogins":false,"OverrideFirstRunPage":"","OverridePostUpdatePage":""}}' > /opt/firefox/distribution/policies.json \
     && rm -rf /opt/firefox/crashreporter /opt/firefox/crashhelper /opt/firefox/pingsender /opt/firefox/updater /opt/firefox/updater.ini /opt/firefox/update-settings.ini /opt/firefox/vaapitest /opt/firefox/glxtest \
     && apt-get purge -y --auto-remove wget xz-utils \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /usr/share/doc /usr/share/man /usr/share/info /usr/share/locale /usr/share/icons/Adwaita /usr/share/poppler /usr/share/ghostscript \

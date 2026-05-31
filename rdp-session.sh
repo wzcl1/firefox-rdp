@@ -7,7 +7,6 @@ export XDG_RUNTIME_DIR="/tmp/runtime-${USER:-browser}"
 export HOME="${HOME:-/home/${USER:-browser}}"
 
 # Firefox performance tuning -- disable GPU features in container
-export MOZ_DISABLE_GMP_SANDBOX=1
 export MOZ_WEBRENDER=0
 export MOZ_GLX_TEST=0
 
@@ -32,10 +31,13 @@ IsRelative=1
 Path=default-release
 Default=yes
 EOF
-    # Apply performance-optimized about:config prefs
-    cat > "$PROFILE_DIR/user.js" << 'EOF'
+fi
+
+# Always write/overwrite user.js so pref changes take effect on update
+mkdir -p "$PROFILE_DIR"
+cat > "$PROFILE_DIR/user.js" << 'EOF'
 // Performance tuning for container/RDP environment
-user_pref("gfx.webanber.enabled", false);
+user_pref("gfx.webrender.enabled", false);
 user_pref("media.hardware-video-decoding.enabled", false);
 user_pref("media.ffmpeg.vaapi.enabled", false);
 user_pref("webgl.disabled", true);
@@ -59,12 +61,6 @@ user_pref("accessibility.force_disabled", 1);
 user_pref("browser.tabs.unloadOnLowMemory", true);
 user_pref("browser.low_commit_space_threshold_mb", 256);
 EOF
-fi
-
-# Apply any updates to user.js even if profile already exists (new prefs merged on Firefox start)
-if [ -f "$PROFILE_DIR/user.js" ]; then
-    chmod 644 "$PROFILE_DIR/user.js"
-fi
 
 openbox &
 wm_pid="$!"
@@ -74,5 +70,10 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-sleep 1
+# Wait for X server and window manager to be ready
+for i in $(seq 1 10); do
+    xdpyinfo >/dev/null 2>&1 && break
+    sleep 0.5
+done
+
 exec firefox --no-remote --new-instance --profile "$PROFILE_DIR" ${FIREFOX_ARGS:-} "${FIREFOX_START_URL:-about:blank}"

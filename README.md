@@ -89,6 +89,7 @@ No `image` tag is set in `docker-compose.yml` — the image is always built loca
 - Change the default password before exposing beyond localhost
 - xrdp uses password-based login — put it behind a VPN, SSH tunnel, or trusted private network for real deployments
 - The container runs with `--shm-size=2gb` to prevent browser crashes from Docker's small default shared memory
+- **Privilege model:** The entrypoint runs as root to create system users and start xrdp/xrdp-sesman. Debian's xrdp packages drop privileges for session handling by default, so RDP sessions run as the unprivileged `RDP_USER`. For defense-in-depth, avoid exposing port 3389 directly — use an SSH tunnel or Tailscale sidecar.
 
 ## How it works
 

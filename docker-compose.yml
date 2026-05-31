@@ -8,4 +8,5 @@ services:
       RDP_PASSWORD: change-me
       FIREFOX_START_URL: https://www.mozilla.org/
     shm_size: "2gb"
+    mem_limit: "4gb"
     restart: unless-stopped

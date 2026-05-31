@@ -1,6 +1,5 @@
 services:
   firefox-rdp:
-    image: ghcr.io/wzcl1/firefox-rdp:latest
     build: .
     ports:
       # Only listen on localhost — remove 127.0.0.1 to expose on all interfaces

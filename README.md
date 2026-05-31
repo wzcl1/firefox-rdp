@@ -1,3 +1,6 @@
+# ⚠️⚠️ Warning ⚠️⚠️
+AI-Generated Code Warning: This code was written by AI and has not been thoroughly tested. Use at your own risk. Review and test thoroughly before production use.
+
 # Firefox over RDP
 
 Lightweight Docker container that runs Firefox inside an Openbox window manager, accessible via RDP.

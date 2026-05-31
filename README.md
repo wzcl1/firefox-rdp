@@ -1,6 +1,8 @@
 # Firefox over RDP
 
-Lightweight Debian-based Docker container that runs Firefox inside an Openbox window manager, accessible via RDP.
+Lightweight Docker container that runs Firefox inside an Openbox window manager, accessible via RDP.
+
+Supports both **amd64** and **arm64** architectures (auto-detected at build time).
 
 Useful for:
 - Running a browser remotely without a full desktop environment
@@ -12,7 +14,7 @@ Useful for:
 ```sh
 git clone https://github.com/wzcl1/firefox-rdp.git
 cd firefox-rdp
-docker compose up -d
+docker compose up --build -d
 ```
 
 Connect with any RDP client:
@@ -27,9 +29,10 @@ Connect with any RDP client:
 ## Features
 
 - **Latest Firefox** — downloads the latest stable release from Mozilla at build time
+- **Multi-arch** — amd64 and arm64 auto-detected; correct Firefox binary downloaded per architecture
 - **uBlock Origin** — pre-installed via Firefox Enterprise Policies (auto-downloads on first launch)
-- **Performance tuned** — GPU features disabled, content processes limited, cached optimized for container/RDP use
-- **Minimal footprint** — stripped of crash reporter, updater, PNG sender, GNOME icons, docs, and other unnecessary files
+- **Performance tuned** — GPU features disabled, content processes limited, cache optimized for container/RDP use
+- **Minimal footprint** — stripped of crash reporter, updater, pingsender, GNOME icons, docs, and other unnecessary files
 - **Openbox window manager** — lightweight, just enough to give Firefox proper window decorations
 
 ## Configuration
@@ -61,27 +64,28 @@ services:
     restart: unless-stopped
 ```
 
-## Security
-
-- Change the default password before exposing beyond localhost
-- xrdp uses password-based login — put it behind a VPN, SSH tunnel, or trusted private network for real deployments
-- The container runs with `--shm-size=2gb` to prevent browser crashes from Docker's small default shared memory
-
 ## Building from source
 
 ```sh
 docker compose up --build -d
 ```
 
-Or using `docker run` directly:
+Docker BuildKit automatically provides `TARGETARCH` during the build. The `Dockerfile` uses it to select the correct Firefox download URL (`linux64` for amd64, `linux64-aarch64` for arm64).
 
-```sh
-docker run --rm -p 3389:3389 \
-  -e RDP_PASSWORD='use-a-real-password' \
-  -e FIREFOX_START_URL='https://example.com' \
-  --shm-size=1g \
-  firefox-rdp:latest
-```
+## Architecture support
+
+| Architecture | Firefox binary                        | Status |
+|--------------|---------------------------------------|--------|
+| amd64        | `linux64` (official Mozilla build)    | Tested |
+| arm64        | `linux64-aarch64` (official Mozilla build) | Tested |
+
+No `image` tag is set in `docker-compose.yml` — the image is always built locally for your architecture.
+
+## Security
+
+- Change the default password before exposing beyond localhost
+- xrdp uses password-based login — put it behind a VPN, SSH tunnel, or trusted private network for real deployments
+- The container runs with `--shm-size=2gb` to prevent browser crashes from Docker's small default shared memory
 
 ## How it works
 

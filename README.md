@@ -17,7 +17,7 @@ Useful for:
 ```sh
 git clone https://github.com/wzcl1/firefox-rdp.git
 cd firefox-rdp
-docker compose up --build -d
+docker compose up -d
 ```
 
 Connect with any RDP client:
@@ -83,7 +83,7 @@ Docker BuildKit automatically provides `TARGETARCH` during the build. The `Docke
 | amd64        | `linux64` (official Mozilla build)    | Tested |
 | arm64        | `linux64-aarch64` (official Mozilla build) | Tested |
 
-No `image` tag is set in `docker-compose.yml` — the image is always built locally for your architecture.
+Pre-built images are published to `ghcr.io/wzcl1/firefox-rdp`. To build locally instead, run `docker compose up --build -d`.
 
 ## Security
 

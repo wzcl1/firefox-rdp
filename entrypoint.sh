@@ -2,7 +2,12 @@
 set -eu
 
 user="${RDP_USER:-browser}"
-password="${RDP_PASSWORD:-browser}"
+
+if [ -z "${RDP_PASSWORD:-}" ]; then
+    echo "ERROR: RDP_PASSWORD must be set" >&2
+    exit 1
+fi
+password="$RDP_PASSWORD"
 uid="${RDP_UID:-1000}"
 gid="${RDP_GID:-1000}"
 

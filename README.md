@@ -33,7 +33,7 @@ Connect with any RDP client:
 
 - **Latest Firefox** — downloads the latest stable release from Mozilla at build time
 - **Multi-arch** — amd64 and arm64 auto-detected; correct Firefox binary downloaded per architecture
-- **uBlock Origin** — pre-installed via Firefox Enterprise Policies (auto-downloads on first launch)
+- **uBlock Origin** — pre-installed and locked via Firefox Enterprise Policies (`force_installed` with SHA256 verification)
 - **Performance tuned** — GPU features disabled, content processes limited, cache optimized for container/RDP use
 - **Minimal footprint** — stripped of crash reporter, updater, pingsender, GNOME icons, docs, and other unnecessary files
 - **Openbox window manager** — lightweight, just enough to give Firefox proper window decorations
@@ -45,7 +45,7 @@ Environment variables in `docker-compose.yml`:
 | Variable            | Default         | Description                            |
 |---------------------|-----------------|----------------------------------------|
 | `RDP_USER`          | `browser`       | Linux/RDP username                    |
-| `RDP_PASSWORD`      | `change-me`     | Linux/RDP password                    |
+| `RDP_PASSWORD`      | *(required)*    | Linux/RDP password (no default — must be set) |
 | `RDP_UID`           | `1000`          | Linux UID for the user                |
 | `RDP_GID`           | `1000`          | Linux GID for the user                |
 | `FIREFOX_START_URL` | `about:blank`   | URL opened when the RDP session starts|
@@ -58,7 +58,8 @@ services:
   firefox-rdp:
     build: .
     ports:
-      - "4000:3389"
+      # Only listen on localhost — remove 127.0.0.1 to expose on all interfaces
+      - "127.0.0.1:4000:3389"
     environment:
       RDP_PASSWORD: secure-password-here
       FIREFOX_START_URL: https://example.com
@@ -86,7 +87,7 @@ No `image` tag is set in `docker-compose.yml` — the image is always built loca
 
 ## Security
 
-- Change the default password before exposing beyond localhost
+- `RDP_PASSWORD` is required — the container will refuse to start if not set
 - xrdp uses password-based login — put it behind a VPN, SSH tunnel, or trusted private network for real deployments
 - The container runs with `--shm-size=2gb` to prevent browser crashes from Docker's small default shared memory
 - **Privilege model:** The entrypoint runs as root to create system users and start xrdp/xrdp-sesman. Debian's xrdp packages drop privileges for session handling by default, so RDP sessions run as the unprivileged `RDP_USER`. For defense-in-depth, avoid exposing port 3389 directly — use an SSH tunnel or Tailscale sidecar.

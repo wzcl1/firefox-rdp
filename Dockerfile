@@ -6,7 +6,6 @@ ARG UBLOCK_SHA256=47f788a1fc2c014830b30bb0ef9588615701b98c5265fb19b8cf4ba779849f
 
 ENV DEBIAN_FRONTEND=noninteractive \
     RDP_USER=browser \
-    RDP_PASSWORD=browser \
     FIREFOX_START_URL=about:blank \
     FIREFOX_ARGS="" \
     LANG=C.UTF-8 \
@@ -31,6 +30,7 @@ RUN apt-get update \
         x11-xserver-utils \
         xauth \
         xdg-utils \
+        x11-utils \
         xz-utils \
         xorgxrdp \
         xrdp \
@@ -42,10 +42,8 @@ RUN apt-get update \
     && mkdir -p /opt/firefox/distribution/extensions \
     && wget -O "/opt/firefox/distribution/extensions/uBlock0@raymondhill.net.xpi" \
          "https://github.com/gorhill/uBlock/releases/download/${UBLOCK_VERSION}/uBlock0_${UBLOCK_VERSION}.firefox.signed.xpi" \
-    && if [ -n "$UBLOCK_SHA256" ]; then \
-         echo "$UBLOCK_SHA256  /opt/firefox/distribution/extensions/uBlock0@raymondhill.net.xpi" | sha256sum -c -; \
-       fi \
-    && printf '%s\n' '{"policies":{"Extensions":{"Locked":["uBlock0@raymondhill.net"]},"DisableFeedbackCommands":true,"DisableFirefoxStudies":true,"DisablePocket":true,"DisableTelemetry":true,"DisableFirefoxAccounts":true,"NetworkPrediction":false,"NoDefaultBookmarks":true,"PasswordManagerEnabled":false,"RequestedLocales":["en-US"],"UserMessaging":{"ExtensionRecommendations":false,"FeatureRecommendations":false,"SkipOnboarding":true,"MoreFromMozilla":false,"FirefoxLabs":false},"HardwareAcceleration":false,"BackgroundApp":false,"DontCheckDefaultBrowser":true,"DisableBuiltinPDF":false,"DisableFormHistory":true,"OfferToSaveLogins":false,"OverrideFirstRunPage":"","OverridePostUpdatePage":""}}' > /opt/firefox/distribution/policies.json \
+    && echo "$UBLOCK_SHA256  /opt/firefox/distribution/extensions/uBlock0@raymondhill.net.xpi" | sha256sum -c - \
+    && printf '%s\n' '{"policies":{"ExtensionSettings":{"uBlock0@raymondhill.net":{"installation_mode":"force_installed","install_url":"file:///opt/firefox/distribution/extensions/uBlock0@raymondhill.net.xpi"}},"DisableFeedbackCommands":true,"DisableFirefoxStudies":true,"DisablePocket":true,"DisableTelemetry":true,"DisableFirefoxAccounts":true,"NetworkPrediction":false,"NoDefaultBookmarks":true,"PasswordManagerEnabled":false,"RequestedLocales":["en-US"],"UserMessaging":{"ExtensionRecommendations":false,"FeatureRecommendations":false,"SkipOnboarding":true,"MoreFromMozilla":false,"FirefoxLabs":false},"HardwareAcceleration":false,"BackgroundApp":false,"DontCheckDefaultBrowser":true,"DisableBuiltinPDF":false,"DisableFormHistory":true,"OfferToSaveLogins":false,"OverrideFirstRunPage":"","OverridePostUpdatePage":""}}' > /opt/firefox/distribution/policies.json \
     && rm -rf /opt/firefox/crashreporter /opt/firefox/crashhelper /opt/firefox/pingsender /opt/firefox/updater /opt/firefox/updater.ini /opt/firefox/update-settings.ini /opt/firefox/vaapitest /opt/firefox/glxtest \
     && apt-get purge -y --auto-remove wget xz-utils \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /usr/share/doc /usr/share/man /usr/share/info /usr/share/locale /usr/share/icons/Adwaita /usr/share/poppler /usr/share/ghostscript \

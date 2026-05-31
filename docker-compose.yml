@@ -1,0 +1,12 @@
+services:
+  firefox-rdp:
+    build: .
+    image: firefox-rdp:latest
+    ports:
+      - "4000:3389"
+    environment:
+      RDP_USER: browser
+      RDP_PASSWORD: change-me
+      FIREFOX_START_URL: https://www.mozilla.org/
+    shm_size: "2gb"
+    restart: unless-stopped

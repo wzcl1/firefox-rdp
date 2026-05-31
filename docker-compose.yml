@@ -1,7 +1,6 @@
 services:
   firefox-rdp:
     build: .
-    image: firefox-rdp:latest
     ports:
       - "4000:3389"
     environment:

@@ -1,6 +1,6 @@
 FROM debian:bookworm-slim
 
-ARG FIREFOX_URL="https://download.mozilla.org/?product=firefox-latest-ssl&os=linux64&lang=en-US"
+ARG TARGETARCH
 
 ENV DEBIAN_FRONTEND=noninteractive \
     RDP_USER=browser \
@@ -32,7 +32,8 @@ RUN apt-get update \
         xz-utils \
         xorgxrdp \
         xrdp \
-    && wget -O /tmp/firefox.tar.xz "$FIREFOX_URL" \
+    && if [ "$TARGETARCH" = "arm64" ]; then FIREFOX_ARCH="linux64-aarch64"; else FIREFOX_ARCH="linux64"; fi \
+    && wget -O /tmp/firefox.tar.xz "https://download.mozilla.org/?product=firefox-latest-ssl&os=${FIREFOX_ARCH}&lang=en-US" \
     && tar -xJf /tmp/firefox.tar.xz -C /opt \
     && ln -s /opt/firefox/firefox /usr/local/bin/firefox \
     && rm -f /tmp/firefox.tar.xz \

@@ -13,7 +13,10 @@ export MOZ_GLX_TEST=0
 mkdir -p "$XDG_RUNTIME_DIR"
 chmod 700 "$XDG_RUNTIME_DIR"
 
-dbus-daemon --session --fork 2>/dev/null || true
+dbus-daemon --session --fork 2>"$HOME/.dbus-session.err" || {
+    echo "[rdp-session] WARNING: dbus-daemon failed to start. Firefox may degrade." >&2
+    cat "$HOME/.dbus-session.err" >&2 2>/dev/null || true
+}
 
 # Ensure Firefox profile exists before launching
 PROFILES_INI="${HOME}/.mozilla/firefox/profiles.ini"
@@ -86,15 +89,16 @@ user_pref("camera.control.face_detection.enabled", false);
 user_pref("clipboard.autocopy", false);
 EOF
 
-openbox &
-wm_pid="$!"
-
 cleanup() {
     # Thaw Firefox so it can exit cleanly
     pkill -CONT -f "firefox" 2>/dev/null || true
     kill "$wm_pid" >/dev/null 2>&1 || true
+    wait "$wm_pid" 2>/dev/null || true
 }
 trap cleanup EXIT INT TERM
+
+openbox &
+wm_pid="$!"
 
 # Wait for X server and window manager to be ready
 for i in $(seq 1 10); do

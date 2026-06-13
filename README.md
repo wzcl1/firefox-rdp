@@ -37,6 +37,7 @@ Connect with any RDP client:
 - **Performance tuned** — Firefox Enterprise Policies plus `user.js` disable background services, speculation, telemetry, and crypto overhead to minimise CPU use in the container.
 - **Privacy first** — built-in tracking protection intentionally disabled (uBlock covers it) to avoid the dual-layer CPU cost; ETP, Pocket, telemetry, and account sync are all off.
 - **Minimal footprint** — stripped of crash reporter, updater, pingsender, GNOME icons, docs, and other unnecessary files
+- **RDP disconnect sleep** — when you disconnect from RDP, Firefox is frozen (SIGSTOP) to use zero CPU. On reconnect, it resumes instantly with full session state preserved.
 - **Openbox window manager** — lightweight, just enough to give Firefox proper window decorations
 
 ## Configuration
@@ -86,7 +87,7 @@ Applied at startup, locked so the user cannot override them. The JSON is embedde
 | **Extensions** | `uBlock0@raymondhill.net` = `force_installed` from local file | uBlock Origin is pre-installed and locked. Other extensions can still be installed manually from AMO or local `.xpi` files (including temporary installs via `about:debugging`). |
 | **Network** | `NetworkPrediction`, `DNSOverHTTPS` (locked), `PostQuantumKeyAgreementEnabled` = `false`, `DisableEncryptedClientHello` = `true` | Disables DNS-over-HTTPS (extra TLS per lookup), predictive networking, post-quantum key agreement, and ECH — all measurable per-connection CPU costs. The RDP tunnel already encrypts the transport. |
 | **Disabled APIs** | `TranslateEnabled`, `XSLTEnabled`, `PictureInPicture` (locked), `PrintingEnabled` = `false` | Translation, XSLT transforms, and print preview rendering are heavy. PiP would spin up an extra video-decode pipeline. |
-| **Browser cleanup** | `SanitizeOnShutdown` (all categories, locked), `DisableFormHistory`, `PasswordManagerEnabled`, `OfferToSaveLogins` = `false` | Session is ephemeral; wipe everything on exit. No password manager because the profile is wiped. |
+| **Browser cleanup** | `DisableFormHistory`, `PasswordManagerEnabled`, `OfferToSaveLogins` = `false` | No password manager; form history disabled. `SanitizeOnShutdown` was removed so the Firefox profile persists across RDP disconnect/reconnect and container restarts. |
 | **Misc hardening** | `SkipTermsOfUse`, `DontCheckDefaultBrowser`, `DisableSetDesktopBackground`, `DisableBuiltinPDFViewer` = `false`, `GoToIntranetSiteForSingleWordEntryInAddressBar` = `false`, `IPProtectionAvailable` = `false` | Skips onboarding dialogs and silent connections. PDF viewer left enabled — its CPU cost is bounded to active viewing (idle tabs do nothing). |
 
 The full policy is in `Dockerfile:46` (single-line JSON written via `printf`).
@@ -109,6 +110,22 @@ The `user.js` is regenerated on every session start so updates take effect. It c
 | **Connection limits** | `network.http.max-connections` = 64, `network.http.max-persistent-connections-per-server` = 6, `network.dnsCacheEntries` = 256 | Modest per-server limit (Firefox default is 6) and a small DNS cache to avoid unbounded growth. |
 
 The full `user.js` is in `rdp-session.sh:38-87`.
+
+## RDP Disconnect Sleep
+
+When you disconnect from RDP (close the client, network drop, etc.), a watchdog process detects the TCP disconnection and sends `SIGSTOP` to Firefox. This completely freezes the process — zero CPU usage, zero network activity, while keeping the full session state in memory.
+
+When you reconnect, the watchdog detects the new TCP connection and sends `SIGCONT` to resume Firefox exactly where you left it.
+
+| Behaviour | Detail |
+|-----------|--------|
+| Detection | Polls `ss -tn 'sport = :3389'` every 2 seconds |
+| Freeze | `SIGSTOP` — process suspended by kernel, zero CPU |
+| Thaw | `SIGCONT` — process resumes instantly |
+| Memory | Stays in RAM (not swapped to disk) |
+| Profile | Persists across disconnect/reconnect; wiped only on container restart |
+
+This is transparent to the user — connect, browse, disconnect, reconnect, and your tabs are exactly where you left them.
 
 ## Building from source
 
@@ -137,8 +154,9 @@ No `image` tag is set in `docker-compose.yml` — the image is always built loca
 
 ## How it works
 
-1. The container starts xrdp (X Remote Desktop Protocol server)
+1. The container starts xrdp (X Remote Desktop Protocol server) and a background watchdog process
 2. On RDP connection, it launches Openbox as the window manager
 3. Firefox starts inside the Openbox session with a pre-configured profile
-4. Firefox Enterprise Policies (`policies.json`) force-install uBlock Origin (cannot be removed by the user), lock the Firefox Home page to `about:blank`, disable telemetry/updates/DoH/PiP, and enforce shutdown sanitisation
-5. Firefox `user.js` (regenerated each session) applies container-optimised about:config preferences: WebRender and hardware video decode off, GPU acceleration disabled, content processes capped at 2, all background services and speculative connections disabled
+4. The watchdog monitors the RDP TCP connection on port 3389 every 2 seconds. When the client disconnects, it sends `SIGSTOP` to Firefox (zero CPU, stays in RAM). On reconnect, it sends `SIGCONT` to resume instantly.
+5. Firefox Enterprise Policies (`policies.json`) force-install uBlock Origin (cannot be removed by the user), lock the Firefox Home page to `about:blank`, disable telemetry/updates/DoH/PiP
+6. Firefox `user.js` (regenerated each session) applies container-optimised about:config preferences: WebRender and hardware video decode off, GPU acceleration disabled, content processes capped at 2, all background services and speculative connections disabled

@@ -31,5 +31,6 @@ chown "$user:$user" "/home/$user/.config/openbox/autostart"
 mkdir -p /var/run/xrdp
 rm -f /var/run/xrdp/xrdp.pid /var/run/xrdp/xrdp-sesman.pid
 
+/usr/local/bin/rdp-watchdog.sh &
 /usr/sbin/xrdp-sesman --nodaemon &
 exec /usr/sbin/xrdp --nodaemon

@@ -2,5 +2,6 @@
 !Dockerfile
 !entrypoint.sh
 !rdp-session.sh
+!rdp-watchdog.sh
 !docker-compose.yml
 !README.md

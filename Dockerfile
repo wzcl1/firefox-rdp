@@ -22,6 +22,7 @@ RUN apt-get update \
         libgtk-3-0 \
         libpulse0 \
         libxt6 \
+        iproute2 \
         openbox \
         procps \
         pulseaudio-utils \
@@ -43,7 +44,7 @@ RUN apt-get update \
     && wget -O "/opt/firefox/distribution/extensions/uBlock0@raymondhill.net.xpi" \
          "https://github.com/gorhill/uBlock/releases/download/${UBLOCK_VERSION}/uBlock0_${UBLOCK_VERSION}.firefox.signed.xpi" \
     && echo "$UBLOCK_SHA256  /opt/firefox/distribution/extensions/uBlock0@raymondhill.net.xpi" | sha256sum -c - \
-     && printf '%s\n' '{"policies":{"DisableTelemetry":true,"DisableFirefoxStudies":true,"DisableFeedbackCommands":true,"DisableFirefoxAccounts":true,"NetworkPrediction":false,"NoDefaultBookmarks":true,"PasswordManagerEnabled":false,"OfferToSaveLogins":false,"RequestedLocales":["en-US"],"SkipTermsOfUse":true,"DontCheckDefaultBrowser":true,"HardwareAcceleration":false,"BackgroundAppUpdate":false,"AppAutoUpdate":false,"ExtensionUpdate":false,"DisableSystemAddonUpdate":true,"DisableDeveloperTools":true,"DisableSetDesktopBackground":true,"DisableBuiltinPDFViewer":false,"DisableFormHistory":true,"OverrideFirstRunPage":"","OverridePostUpdatePage":"","FirefoxHome":{"Search":false,"TopSites":false,"SponsoredTopSites":false,"Highlights":false,"Pocket":false,"SponsoredPocket":false,"Snippets":false,"Locked":true},"UserMessaging":{"ExtensionRecommendations":false,"FeatureRecommendations":false,"UrlbarInterventions":false,"SkipOnboarding":true,"MoreFromMozilla":false,"FirefoxLabs":false,"Locked":true},"Homepage":{"URL":"about:blank","Locked":true,"StartPage":"homepage"},"ExtensionSettings":{"uBlock0@raymondhill.net":{"installation_mode":"force_installed","install_url":"file:///opt/firefox/distribution/extensions/uBlock0@raymondhill.net.xpi"}},"VisualSearchEnabled":false,"TranslateEnabled":false,"PictureInPicture":{"Enabled":false,"Locked":true},"PrintingEnabled":false,"XSLTEnabled":false,"SearchSuggestEnabled":false,"FirefoxSuggest":{"WebSuggestions":false,"SponsoredSuggestions":false,"ImproveSuggest":false,"Locked":true},"GoToIntranetSiteForSingleWordEntryInAddressBar":false,"IPProtectionAvailable":false,"PostQuantumKeyAgreementEnabled":false,"DisableEncryptedClientHello":true,"DNSOverHTTPS":{"Enabled":false,"Locked":true},"EnableTrackingProtection":{"Value":false,"Locked":true},"SanitizeOnShutdown":{"Cache":true,"Cookies":true,"FormData":true,"History":true,"Sessions":true,"SiteSettings":true,"Locked":true}}}' > /opt/firefox/distribution/policies.json \
+     && printf '%s\n' '{"policies":{"DisableTelemetry":true,"DisableFirefoxStudies":true,"DisableFeedbackCommands":true,"DisableFirefoxAccounts":true,"NetworkPrediction":false,"NoDefaultBookmarks":true,"PasswordManagerEnabled":false,"OfferToSaveLogins":false,"RequestedLocales":["en-US"],"SkipTermsOfUse":true,"DontCheckDefaultBrowser":true,"HardwareAcceleration":false,"BackgroundAppUpdate":false,"AppAutoUpdate":false,"ExtensionUpdate":false,"DisableSystemAddonUpdate":true,"DisableDeveloperTools":true,"DisableSetDesktopBackground":true,"DisableBuiltinPDFViewer":false,"DisableFormHistory":true,"OverrideFirstRunPage":"","OverridePostUpdatePage":"","FirefoxHome":{"Search":false,"TopSites":false,"SponsoredTopSites":false,"Highlights":false,"Pocket":false,"SponsoredPocket":false,"Snippets":false,"Locked":true},"UserMessaging":{"ExtensionRecommendations":false,"FeatureRecommendations":false,"UrlbarInterventions":false,"SkipOnboarding":true,"MoreFromMozilla":false,"FirefoxLabs":false,"Locked":true},"Homepage":{"URL":"about:blank","Locked":true,"StartPage":"homepage"},"ExtensionSettings":{"uBlock0@raymondhill.net":{"installation_mode":"force_installed","install_url":"file:///opt/firefox/distribution/extensions/uBlock0@raymondhill.net.xpi"}},"VisualSearchEnabled":false,"TranslateEnabled":false,"PictureInPicture":{"Enabled":false,"Locked":true},"PrintingEnabled":false,"XSLTEnabled":false,"SearchSuggestEnabled":false,"FirefoxSuggest":{"WebSuggestions":false,"SponsoredSuggestions":false,"ImproveSuggest":false,"Locked":true},"GoToIntranetSiteForSingleWordEntryInAddressBar":false,"IPProtectionAvailable":false,"PostQuantumKeyAgreementEnabled":false,"DisableEncryptedClientHello":true,"DNSOverHTTPS":{"Enabled":false,"Locked":true},"EnableTrackingProtection":{"Value":false,"Locked":true}}}' > /opt/firefox/distribution/policies.json \
     && rm -rf /opt/firefox/crashreporter /opt/firefox/crashhelper /opt/firefox/pingsender /opt/firefox/updater /opt/firefox/updater.ini /opt/firefox/update-settings.ini /opt/firefox/vaapitest /opt/firefox/glxtest \
     && apt-get purge -y --auto-remove wget xz-utils \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /usr/share/doc /usr/share/man /usr/share/info /usr/share/locale /usr/share/icons/Adwaita /usr/share/poppler /usr/share/ghostscript \
@@ -51,8 +52,9 @@ RUN apt-get update \
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY rdp-session.sh /usr/local/bin/rdp-session.sh
+COPY rdp-watchdog.sh /usr/local/bin/rdp-watchdog.sh
 
-RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/rdp-session.sh \
+RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/rdp-session.sh /usr/local/bin/rdp-watchdog.sh \
     && printf '#!/bin/sh\nexec /usr/local/bin/rdp-session.sh\n' > /etc/xrdp/startwm.sh \
     && chmod +x /etc/xrdp/startwm.sh \
     && sed -i 's/^port=3389/port=tcp:\/\/:3389/' /etc/xrdp/xrdp.ini

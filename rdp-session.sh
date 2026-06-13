@@ -90,6 +90,8 @@ openbox &
 wm_pid="$!"
 
 cleanup() {
+    # Thaw Firefox so it can exit cleanly
+    pkill -CONT -f "firefox" 2>/dev/null || true
     kill "$wm_pid" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT INT TERM
@@ -100,4 +102,12 @@ for i in $(seq 1 10); do
     sleep 0.5
 done
 
-exec firefox --no-remote --new-instance --profile "$PROFILE_DIR" ${FIREFOX_ARGS:-} "${FIREFOX_START_URL:-about:blank}"
+firefox --no-remote --new-instance --profile "$PROFILE_DIR" ${FIREFOX_ARGS:-} "${FIREFOX_START_URL:-about:blank}" &
+firefox_pid=$!
+echo "$firefox_pid" > /tmp/firefox.pid
+
+# Keep session alive until Firefox exits; re-check periodically
+# so the watchdog can freeze/thaw us between iterations
+while kill -0 "$firefox_pid" 2>/dev/null; do
+    wait "$firefox_pid" 2>/dev/null || true
+done

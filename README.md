@@ -85,7 +85,7 @@ Applied at startup, locked so the user cannot override them. The JSON is embedde
 | **Tracking & content** | `EnableTrackingProtection: false` (locked), `FirefoxHome.*` (all off, locked), `Homepage` = `about:blank` (locked), `SearchSuggestEnabled`, `FirefoxSuggest.*`, `VisualSearchEnabled` = `false` | uBlock Origin is force-installed and covers ad/tracking filtering; running ETP on top duplicates that CPU work. Disabling Firefox Home and Suggest eliminates background feeds. |
 | **New Tab & search** | `NoDefaultBookmarks`, `OverrideFirstRunPage` / `OverridePostUpdatePage` = `""` | Clean profile, no marketing/onboarding pages. |
 | **Extensions** | `uBlock0@raymondhill.net` = `force_installed` from local `.xpi` | uBlock Origin is bundled in the image (downloaded from GitHub at build time) and locked. Firefox verifies Mozilla's addon signature at install time — no manual SHA256 needed. Other extensions can still be installed manually from AMO or as local `.xpi` files (including temporary installs via `about:debugging`). |
-| **Network** | `NetworkPrediction`, `DNSOverHTTPS` (locked), `PostQuantumKeyAgreementEnabled` = `false`, `DisableEncryptedClientHello` = `true` | Disables DNS-over-HTTPS (extra TLS per lookup), predictive networking, post-quantum key agreement, and ECH — all measurable per-connection CPU costs. The RDP tunnel already encrypts the transport. |
+| **Network** | `DNSOverHTTPS` = `true` (locked), `PostQuantumKeyAgreementEnabled` = `false`, `DisableEncryptedClientHello` = `false` | DNS-over-HTTPS is enabled for encrypted, privacy-preserving resolution. Post-quantum key agreement is off to reduce per-connection CPU cost. Encrypted Client Hello is left at its default (not disabled). |
 | **Disabled APIs** | `TranslateEnabled`, `XSLTEnabled`, `PictureInPicture` (locked), `PrintingEnabled` = `false` | Translation, XSLT transforms, and print preview rendering are heavy. PiP would spin up an extra video-decode pipeline. |
 | **Browser cleanup** | `DisableFormHistory`, `PasswordManagerEnabled`, `OfferToSaveLogins` = `false` | No password manager; form history disabled. `SanitizeOnShutdown` was removed so the Firefox profile persists across RDP disconnect/reconnect and container restarts. |
 | **Misc hardening** | `SkipTermsOfUse`, `DontCheckDefaultBrowser`, `DisableSetDesktopBackground`, `DisableBuiltinPDFViewer` = `false`, `GoToIntranetSiteForSingleWordEntryInAddressBar` = `false`, `IPProtectionAvailable` = `false` | Skips onboarding dialogs and silent connections. PDF viewer left enabled — its CPU cost is bounded to active viewing (idle tabs do nothing). |
@@ -98,18 +98,23 @@ The `user.js` is regenerated on every session start so updates take effect. It c
 
 | Category | Prefs | Reason |
 |----------|-------|--------|
-| **GPU & media** | `gfx.webrender.enabled`, `media.hardware-video-decoding.enabled`, `media.ffmpeg.vaapi.enabled`, `layers.acceleration.disabled`, `webgl.disabled` = all off | No GPU in container. WebRender / hardware video decode would either fail or force a CPU fallback path. |
+| **GPU & media** | `gfx.webrender.enabled`, `media.hardware-video-decoding.enabled`, `media.ffmpeg.vaapi.enabled`, `layers.acceleration.disabled`, `webgl.disabled`, `gfx.canvas.accelerated` = all off | No GPU in container. WebRender / hardware video decode / canvas acceleration would either fail or force a CPU fallback path. |
+| **Animation** | `general.smoothScroll` = `false`, `layout.animation.prefers-reduced-motion` = `1`, `image.animation_mode` = `"none"` | Disables smooth scrolling, CSS animations, and animated GIFs to eliminate per-frame repaint CPU cost. |
+| **Font cache** | `gfx.content.skia-font-cache-size` = `5` | Reduces Skia font cache from 16MB to 5MB to lower memory footprint. |
 | **Process model** | `dom.ipc.processCount` = `2` | Caps content processes to 2 to fit in low-memory containers. |
-| **Cache** | `browser.cache.disk.enable` = `false`, `browser.cache.disk.capacity` = 100MB, `browser.cache.memory.enable` = `true`, `browser.cache.memory.capacity` = 32MB | Disk cache is unnecessary (profile is wiped on shutdown). Memory cache is bounded to keep the container footprint small. |
+| **Cache** | `browser.cache.disk.enable` = `false`, `browser.cache.disk.capacity` = 100MB, `browser.cache.memory.enable` = `true`, `browser.cache.memory.capacity` = 128MB | Disk cache is unnecessary (profile is wiped on shutdown). Memory cache is bounded to keep the container footprint small while providing enough room for active page resources. |
 | **Session restore** | `browser.sessionhistory.max_entries` = 10, `browser.sessionstore.max_tabs_undo` = 0, `browser.sessionstore.privacy_level` = 2, `browser.sessionstore.interval` = 30s | Bounded back/forward list; no recently-closed-tabs undo (per-tab snapshots are expensive). |
 | **Network prediction** | `network.predictor.enabled` = `false`, `network.prefetch-next` = `false`, `network.dns.disablePrefetch` = `true`, `network.dns.disablePrefetchFromHTTPS` = `true`, `network.http.speculative-parallel-limit` = 0, `browser.places.speculativeConnect.enabled` = `false`, `browser.urlbar.speculativeConnect.enabled` = `false` | Kills all background pre-connection / pre-resolution work. |
+| **Connection limits** | `network.http.max-connections` = 48, `network.http.max-persistent-connections-per-server` = 6, `network.dnsCacheEntries` = 256, `network.ssl_tokens_cache_capacity` = 1000 | Lower total connection count (Firefox default is 6 per server) and reduced TLS session cache to bound resource usage. |
+| **Network performance** | `network.http.pipelining` = `true`, `network.http.proxy.pipelining` = `true` | Enables HTTP pipelining for better throughput on high-latency links. |
+| **TLS** | `security.ssl.enable_ocsp_stapling` = `false` | Disables OCSP stapling to avoid extra round-trips and CPU cost per TLS handshake. |
 | **Background services** | `network.captive-portal-service.enabled`, `network.connectivity-service.enabled`, `browser.casting.enabled`, `media.gmp-gmpopenh264.enabled`, `app.update.enabled` = `false`, `extensions.getAddons.cache.enabled`, `lightweightThemes.update.enabled` = `false`, `browser.topsites.contile.enabled` = `false` | Stops periodic HTTP probes, mDNS cast discovery, OpenH264 download, and add-on metadata fetches that fire in the background. |
 | **Tab & memory pressure** | `browser.tabs.unloadOnLowMemory` = `true`, `browser.low_commit_space_threshold_mb` = 256, `browser.pagethumbnails.capturing_disabled` = `true`, `browser.newtabpage.activity-stream.enabled` = `false` | Drops tabs under memory pressure; disables off-screen thumbnail rendering and activity-stream feeds. |
 | **Media & content** | `media.autoplay.default` = 5, `media.video_stats.enabled` = `false`, `gfx.font_rendering.opentype_svg.enabled` = `false`, `javascript.options.asmjs` = `false`, `camera.control.face_detection.enabled` = `false` | Blocks autoplay video decode; removes per-frame and per-glyph CPU overhead from features we don't use. |
 | **UI noise** | `browser.startup.homepage_override.mstone` = `ignore`, `browser.startup.blankWindow` = `false`, `accessibility.force_disabled` = 1, `clipboard.autocopy` = `false` | Suppresses the blank-window flash during startup, the accessibility walker, and Linux selection autocopy. |
-| **Connection limits** | `network.http.max-connections` = 64, `network.http.max-persistent-connections-per-server` = 6, `network.dnsCacheEntries` = 256 | Modest per-server limit (Firefox default is 6) and a small DNS cache to avoid unbounded growth. |
+| **Telemetry** | `app.normandy.enabled`, `app.shield.optoutstudies.enabled`, `browser.newtabpage.activity-stream.feeds.telemetry`, `browser.newtabpage.activity-stream.telemetry`, `browser.ping-centre.telemetry`, `toolkit.telemetry.unified`, `datareporting.healthreport.uploadEnabled` = `false`; `toolkit.coverage.opt-out` = `true`; `browser.contentblocking.report.endpoint_url` = `""` | Disables all telemetry, Shield experiments, health reporting, and content-blocking reporting to eliminate background network calls and CPU overhead. |
 
-The full `user.js` is in `rdp-session.sh:38-87`.
+The full `user.js` is in `rdp-session.sh:41-106`.
 
 ## RDP Disconnect Sleep
 
@@ -119,10 +124,12 @@ When you reconnect, the watchdog detects the new TCP connection and sends `SIGCO
 
 | Behaviour | Detail |
 |-----------|--------|
-| Detection | Polls `ss -tn state established` for `:3389` every 2 seconds |
+| Detection | Polls `ss -tn state established dst :3389` every 2 seconds |
+| Debounce | 1-second confirmation delay before acting on state change, preventing thrashing from connection flaps |
 | Freeze | `SIGSTOP` — process suspended by kernel, zero CPU |
 | Thaw | `SIGCONT` — process resumes instantly |
 | Memory | Stays in RAM (not swapped to disk) |
+| Log | Bounded to 1MB with automatic rotation |
 | Profile | Persists across disconnect/reconnect; wiped only on container restart |
 
 This is transparent to the user — connect, browse, disconnect, reconnect, and your tabs are exactly where you left them.
@@ -149,14 +156,46 @@ No `image` tag is set in `docker-compose.yml` — the image is always built loca
 - `RDP_PASSWORD` is required — the container will refuse to start if not set
 - xrdp uses password-based login — put it behind a VPN, SSH tunnel, or trusted private network for real deployments
 - The container runs with `--shm-size=2gb` to prevent browser crashes from Docker's small default shared memory
-- **Privilege model:** The entrypoint runs as root to create system users and start xrdp/xrdp-sesman. Debian's xrdp packages drop privileges for session handling by default, so RDP sessions run as the unprivileged `RDP_USER`. For defense-in-depth, avoid exposing port 3389 directly — use an SSH tunnel or Tailscale sidecar.
-- **Extension surface:** uBlock Origin is force-installed and cannot be removed. The `.xpi` is downloaded from GitHub at build time (latest version via API) and bundled in the image. Firefox verifies Mozilla's addon signature at install time — no manual SHA256 verification needed. Other extensions can be installed from AMO or as local `.xpi` files (including temporary installs via `about:debugging`).
+
+### Privilege model
+
+The container uses a layered approach to minimise the root attack surface:
+
+| Process | User | Why |
+|---------|------|-----|
+| `xrdp` | root (unavoidable) | Must create virtual X11 displays, manage session lifecycle |
+| `xrdp-sesman` | root (unavoidable) | Spawns session processes as the authenticated user |
+| `rdp-watchdog` | `RDP_USER` | Only signals Firefox; root privileges dropped after startup |
+| Firefox + Openbox | `RDP_USER` | Runs fully unprivileged inside the RDP session |
+
+Additional hardening in `docker-compose.yml`:
+
+- **`cap_drop: [ALL]`** — all Linux capabilities are dropped, then only `NET_BIND_SERVICE`, `SYS_ADMIN`, and `DAC_OVERRIDE` are restored (minimum required for xrdp)
+- **`read_only: true`** — the root filesystem is read-only; only `/tmp`, `/var`, `/run`, and the user's home directories are writable via tmpfs mounts
+- **`tmpfs` mounts** — writable paths are in-memory filesystems with bounded sizes, preventing any on-disk persistence
+
+For defense-in-depth, avoid exposing port 3389 directly — use an SSH tunnel or Tailscale sidecar.
+
+### Health check
+
+The Dockerfile includes a `HEALTHCHECK` that verifies xrdp is listening on port 3389 every 30 seconds. This allows Docker and orchestrators to detect a broken container and restart it automatically.
+
+| Parameter | Value |
+|-----------|-------|
+| Interval | 30 seconds |
+| Timeout | 5 seconds |
+| Start period | 10 seconds |
+| Retries | 3 |
+
+### Extension surface
+
+uBlock Origin is force-installed and cannot be removed. The `.xpi` is downloaded from GitHub at build time (latest version via API) and bundled in the image. Firefox verifies Mozilla's addon signature at install time — no manual SHA256 verification needed. Other extensions can be installed from AMO or as local `.xpi` files (including temporary installs via `about:debugging`).
 
 ## How it works
 
-1. The container starts xrdp (X Remote Desktop Protocol server) and a background watchdog process
-2. On RDP connection, it launches Openbox as the window manager
-3. Firefox starts inside the Openbox session with a pre-configured profile
-4. The watchdog monitors the RDP TCP connection on port 3389 every 2 seconds. When the client disconnects, it sends `SIGSTOP` to Firefox (zero CPU, stays in RAM). On reconnect, it sends `SIGCONT` to resume instantly.
-5. Firefox Enterprise Policies (`policies.json`) force-install uBlock Origin from the bundled `.xpi` (Mozilla's signature is verified at install time), lock the Firefox Home page to `about:blank`, disable telemetry/updates/DoH/PiP
+1. The container starts xrdp (X Remote Desktop Protocol server), xrdp-sesman, and a background watchdog process
+2. The watchdog runs as the unprivileged `RDP_USER` and monitors the RDP TCP connection every 2 seconds, with a 1-second debounce to prevent rapid state changes
+3. On RDP connection, it launches Openbox as the window manager and Firefox with a pre-configured profile
+4. When the client disconnects, the watchdog sends `SIGSTOP` to Firefox (zero CPU, stays in RAM). On reconnect, it sends `SIGCONT` to resume instantly
+5. Firefox Enterprise Policies (`policies.json`) force-install uBlock Origin from the bundled `.xpi` (Mozilla's signature is verified at install time), lock the Firefox Home page to `about:blank`, disable telemetry/updates/PiP, and enable DNS-over-HTTPS
 6. Firefox `user.js` (regenerated each session) applies container-optimised about:config preferences: WebRender and hardware video decode off, GPU acceleration disabled, content processes capped at 2, all background services and speculative connections disabled

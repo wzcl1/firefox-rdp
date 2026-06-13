@@ -3,21 +3,43 @@ set -eu
 
 SUSPENDED=0
 LOG="/tmp/watchdog.log"
+DEBOUNCE=1
+LOG_MAX=1048576
+ROTATE_INTERVAL=300
+ROTATE_COUNT=0
 
 echo "watchdog started" > "$LOG"
 
+rotate_log() {
+    if [ -f "$LOG" ] && [ "$(wc -c < "$LOG" 2>/dev/null || echo 0)" -gt "$LOG_MAX" ]; then
+        tail -c "$LOG_MAX" "$LOG" > "${LOG}.tmp" 2>/dev/null && mv "${LOG}.tmp" "$LOG"
+    fi
+}
+
 while true; do
-    if ss -tn state established 2>/dev/null | grep -q ':3389 '; then
+    ROTATE_COUNT=$((ROTATE_COUNT + 1))
+    if [ "$ROTATE_COUNT" -ge "$ROTATE_INTERVAL" ]; then
+        rotate_log
+        ROTATE_COUNT=0
+    fi
+
+    if ss -tn state established dst :3389 >/dev/null 2>&1; then
         if [ "$SUSPENDED" -eq 1 ]; then
-            echo "$(date) CONNECTED -> resume Firefox" >> "$LOG"
-            pkill -CONT -f "firefox" 2>/dev/null || true
-            SUSPENDED=0
+            sleep "$DEBOUNCE"
+            if ss -tn state established dst :3389 >/dev/null 2>&1; then
+                echo "$(date) CONNECTED -> resume Firefox" >> "$LOG"
+                pkill -CONT -f "firefox" 2>/dev/null || true
+                SUSPENDED=0
+            fi
         fi
     else
         if [ "$SUSPENDED" -eq 0 ]; then
-            echo "$(date) DISCONNECTED -> freeze Firefox" >> "$LOG"
-            pkill -STOP -f "firefox" 2>/dev/null || true
-            SUSPENDED=1
+            sleep "$DEBOUNCE"
+            if ! ss -tn state established dst :3389 >/dev/null 2>&1; then
+                echo "$(date) DISCONNECTED -> freeze Firefox" >> "$LOG"
+                pkill -STOP -f "firefox" 2>/dev/null || true
+                SUSPENDED=1
+            fi
         fi
     fi
     sleep 2

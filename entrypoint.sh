@@ -1,6 +1,10 @@
 #!/bin/sh
 set -eu
 
+# Security: this script runs as root to perform user setup and start xrdp.
+# The watchdog process is dropped to the unprivileged RDP_USER after setup.
+# xrdp/xrdp-sesman must remain root (see Dockerfile header comment).
+
 user="${RDP_USER:-browser}"
 
 if [ -z "${RDP_PASSWORD:-}" ]; then
@@ -31,6 +35,9 @@ chown "$user:$user" "/home/$user/.config/openbox/autostart"
 mkdir -p /var/run/xrdp
 rm -f /var/run/xrdp/xrdp.pid /var/run/xrdp/xrdp-sesman.pid
 
-/usr/local/bin/rdp-watchdog.sh &
+# Run the watchdog as the unprivileged user — it only signals Firefox
+# processes, which also run as $user, so root is not required.
+su -s /bin/sh -c '/usr/local/bin/rdp-watchdog.sh &' "$user"
+
 /usr/sbin/xrdp-sesman --nodaemon &
 exec /usr/sbin/xrdp --nodaemon

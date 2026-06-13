@@ -1,5 +1,14 @@
 FROM debian:bookworm-slim
 
+# Security note: The entrypoint process (xrdp/xrdp-sesman) must run as root
+# because Debian's xrdp packages require root to:
+#   - Create and manage virtual X11 displays (:10, :11, ...) via Xvnc/Xorgxrdp
+#   - Spawn session processes as the authenticated RDP_USER
+#   - Write to /var/run/xrdp/ for PID and socket files
+# Session processes (Firefox, Openbox) run as the unprivileged RDP_USER.
+# The docker-compose.yml applies defense-in-depth: cap_drop ALL, read_only fs,
+# and only restores the minimum capabilities xrdp requires.
+
 ARG TARGETARCH
 
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -43,7 +52,7 @@ RUN apt-get update \
          | grep "browser_download_url.*firefox.signed.xpi" \
          | head -1 | cut -d'"' -f4) \
     && wget -O "/opt/firefox/distribution/extensions/uBlock0@raymondhill.net.xpi" "$UBLOCK_URL" \
-     && printf '%s\n' '{"policies":{"DisableTelemetry":true,"DisableFirefoxStudies":true,"DisableFeedbackCommands":true,"DisableFirefoxAccounts":true,"NetworkPrediction":false,"NoDefaultBookmarks":true,"PasswordManagerEnabled":false,"OfferToSaveLogins":false,"RequestedLocales":["en-US"],"SkipTermsOfUse":true,"DontCheckDefaultBrowser":true,"HardwareAcceleration":false,"BackgroundAppUpdate":false,"AppAutoUpdate":false,"ExtensionUpdate":false,"DisableSystemAddonUpdate":true,"DisableDeveloperTools":true,"DisableSetDesktopBackground":true,"DisableBuiltinPDFViewer":false,"DisableFormHistory":true,"OverrideFirstRunPage":"","OverridePostUpdatePage":"","FirefoxHome":{"Search":false,"TopSites":false,"SponsoredTopSites":false,"Highlights":false,"Pocket":false,"SponsoredPocket":false,"Snippets":false,"Locked":true},"UserMessaging":{"ExtensionRecommendations":false,"FeatureRecommendations":false,"UrlbarInterventions":false,"SkipOnboarding":true,"MoreFromMozilla":false,"FirefoxLabs":false,"Locked":true},"Homepage":{"URL":"about:blank","Locked":true,"StartPage":"homepage"},"ExtensionSettings":{"uBlock0@raymondhill.net":{"installation_mode":"force_installed","install_url":"file:///opt/firefox/distribution/extensions/uBlock0@raymondhill.net.xpi"}},"VisualSearchEnabled":false,"TranslateEnabled":false,"PictureInPicture":{"Enabled":false,"Locked":true},"PrintingEnabled":false,"XSLTEnabled":false,"SearchSuggestEnabled":false,"FirefoxSuggest":{"WebSuggestions":false,"SponsoredSuggestions":false,"ImproveSuggest":false,"Locked":true},"GoToIntranetSiteForSingleWordEntryInAddressBar":false,"IPProtectionAvailable":false,"PostQuantumKeyAgreementEnabled":false,"DisableEncryptedClientHello":true,"DNSOverHTTPS":{"Enabled":false,"Locked":true},"EnableTrackingProtection":{"Value":false,"Locked":true}}}' > /opt/firefox/distribution/policies.json \
+     && printf '%s\n' '{"policies":{"DisableTelemetry":true,"DisableFirefoxStudies":true,"DisableFeedbackCommands":true,"DisableFirefoxAccounts":true,"NetworkPrediction":false,"NoDefaultBookmarks":true,"PasswordManagerEnabled":false,"OfferToSaveLogins":false,"RequestedLocales":["en-US"],"SkipTermsOfUse":true,"DontCheckDefaultBrowser":true,"HardwareAcceleration":false,"BackgroundAppUpdate":false,"AppAutoUpdate":false,"ExtensionUpdate":false,"DisableSystemAddonUpdate":true,"DisableDeveloperTools":true,"DisableSetDesktopBackground":true,"DisableBuiltinPDFViewer":false,"DisableFormHistory":true,"OverrideFirstRunPage":"","OverridePostUpdatePage":"","FirefoxHome":{"Search":false,"TopSites":false,"SponsoredTopSites":false,"Highlights":false,"Pocket":false,"SponsoredPocket":false,"Snippets":false,"Locked":true},"UserMessaging":{"ExtensionRecommendations":false,"FeatureRecommendations":false,"UrlbarInterventions":false,"SkipOnboarding":true,"MoreFromMozilla":false,"FirefoxLabs":false,"Locked":true},"Homepage":{"URL":"about:blank","Locked":true,"StartPage":"homepage"},"ExtensionSettings":{"uBlock0@raymondhill.net":{"installation_mode":"force_installed","install_url":"file:///opt/firefox/distribution/extensions/uBlock0@raymondhill.net.xpi"}},"VisualSearchEnabled":false,"TranslateEnabled":false,"PictureInPicture":{"Enabled":false,"Locked":true},"PrintingEnabled":false,"XSLTEnabled":false,"SearchSuggestEnabled":false,"FirefoxSuggest":{"WebSuggestions":false,"SponsoredSuggestions":false,"ImproveSuggest":false,"Locked":true},"GoToIntranetSiteForSingleWordEntryInAddressBar":false,"IPProtectionAvailable":false,"PostQuantumKeyAgreementEnabled":false,"DisableEncryptedClientHello":false,"DNSOverHTTPS":{"Enabled":true,"Locked":true},"EnableTrackingProtection":{"Value":false,"Locked":true}}}' > /opt/firefox/distribution/policies.json \
     && rm -rf /opt/firefox/crashreporter /opt/firefox/crashhelper /opt/firefox/pingsender /opt/firefox/updater /opt/firefox/updater.ini /opt/firefox/update-settings.ini /opt/firefox/vaapitest /opt/firefox/glxtest \
     && apt-get purge -y --auto-remove wget xz-utils \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /usr/share/doc /usr/share/man /usr/share/info /usr/share/locale /usr/share/icons/Adwaita /usr/share/poppler /usr/share/ghostscript \
@@ -59,5 +68,8 @@ RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/rdp-session.sh /usr/loc
     && sed -i 's/^port=3389/port=tcp:\/\/:3389/' /etc/xrdp/xrdp.ini
 
 EXPOSE 3389
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD ss -tln state listening dst :3389 >/dev/null 2>&1 || exit 1
 
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/entrypoint.sh"]

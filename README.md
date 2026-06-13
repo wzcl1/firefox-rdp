@@ -33,7 +33,7 @@ Connect with any RDP client:
 
 - **Latest Firefox** — downloads the latest stable release from Mozilla at build time
 - **Multi-arch** — amd64 and arm64 auto-detected; correct Firefox binary downloaded per architecture
-- **uBlock Origin** — force-installed from AMO (Mozilla Add-ons) via Firefox Enterprise Policies. Always gets the latest version on first launch; Mozilla's signature verification ensures integrity. Other extensions can still be installed manually.
+- **uBlock Origin** — downloaded from GitHub releases at build time (latest version via API), bundled in the image. Firefox verifies Mozilla's signature at install time — no manual SHA256 needed. Other extensions can still be installed manually.
 - **Performance tuned** — Firefox Enterprise Policies plus `user.js` disable background services, speculation, telemetry, and crypto overhead to minimise CPU use in the container.
 - **Privacy first** — built-in tracking protection intentionally disabled (uBlock covers it) to avoid the dual-layer CPU cost; ETP, Pocket, telemetry, and account sync are all off.
 - **Minimal footprint** — stripped of crash reporter, updater, pingsender, GNOME icons, docs, and other unnecessary files
@@ -84,7 +84,7 @@ Applied at startup, locked so the user cannot override them. The JSON is embedde
 | **Auto-updates** | `AppAutoUpdate`, `BackgroundAppUpdate`, `ExtensionUpdate` = `false` | Updates happen at Docker image build time, never at runtime. Stops periodic update-check network calls. |
 | **Tracking & content** | `EnableTrackingProtection: false` (locked), `FirefoxHome.*` (all off, locked), `Homepage` = `about:blank` (locked), `SearchSuggestEnabled`, `FirefoxSuggest.*`, `VisualSearchEnabled` = `false` | uBlock Origin is force-installed and covers ad/tracking filtering; running ETP on top duplicates that CPU work. Disabling Firefox Home and Suggest eliminates background feeds. |
 | **New Tab & search** | `NoDefaultBookmarks`, `OverrideFirstRunPage` / `OverridePostUpdatePage` = `""` | Clean profile, no marketing/onboarding pages. |
-| **Extensions** | `uBlock0@raymondhill.net` = `force_installed` from AMO | uBlock Origin is downloaded from addons.mozilla.org on first launch and locked. Mozilla's signing verifies integrity. Other extensions can still be installed manually from AMO or as local `.xpi` files (including temporary installs via `about:debugging`). |
+| **Extensions** | `uBlock0@raymondhill.net` = `force_installed` from local `.xpi` | uBlock Origin is bundled in the image (downloaded from GitHub at build time) and locked. Firefox verifies Mozilla's addon signature at install time — no manual SHA256 needed. Other extensions can still be installed manually from AMO or as local `.xpi` files (including temporary installs via `about:debugging`). |
 | **Network** | `NetworkPrediction`, `DNSOverHTTPS` (locked), `PostQuantumKeyAgreementEnabled` = `false`, `DisableEncryptedClientHello` = `true` | Disables DNS-over-HTTPS (extra TLS per lookup), predictive networking, post-quantum key agreement, and ECH — all measurable per-connection CPU costs. The RDP tunnel already encrypts the transport. |
 | **Disabled APIs** | `TranslateEnabled`, `XSLTEnabled`, `PictureInPicture` (locked), `PrintingEnabled` = `false` | Translation, XSLT transforms, and print preview rendering are heavy. PiP would spin up an extra video-decode pipeline. |
 | **Browser cleanup** | `DisableFormHistory`, `PasswordManagerEnabled`, `OfferToSaveLogins` = `false` | No password manager; form history disabled. `SanitizeOnShutdown` was removed so the Firefox profile persists across RDP disconnect/reconnect and container restarts. |
@@ -119,7 +119,7 @@ When you reconnect, the watchdog detects the new TCP connection and sends `SIGCO
 
 | Behaviour | Detail |
 |-----------|--------|
-| Detection | Polls `ss -tn 'sport = :3389'` every 2 seconds |
+| Detection | Polls `ss -tn state established` for `:3389` every 2 seconds |
 | Freeze | `SIGSTOP` — process suspended by kernel, zero CPU |
 | Thaw | `SIGCONT` — process resumes instantly |
 | Memory | Stays in RAM (not swapped to disk) |
@@ -150,7 +150,7 @@ No `image` tag is set in `docker-compose.yml` — the image is always built loca
 - xrdp uses password-based login — put it behind a VPN, SSH tunnel, or trusted private network for real deployments
 - The container runs with `--shm-size=2gb` to prevent browser crashes from Docker's small default shared memory
 - **Privilege model:** The entrypoint runs as root to create system users and start xrdp/xrdp-sesman. Debian's xrdp packages drop privileges for session handling by default, so RDP sessions run as the unprivileged `RDP_USER`. For defense-in-depth, avoid exposing port 3389 directly — use an SSH tunnel or Tailscale sidecar.
-- **Extension surface:** uBlock Origin is force-installed from AMO (Mozilla Add-ons) and cannot be removed. Firefox verifies Mozilla's signature on the `.xpi` at install time. Other extensions can be installed from AMO or as local `.xpi` files (including temporary installs via `about:debugging`).
+- **Extension surface:** uBlock Origin is force-installed and cannot be removed. The `.xpi` is downloaded from GitHub at build time (latest version via API) and bundled in the image. Firefox verifies Mozilla's addon signature at install time — no manual SHA256 verification needed. Other extensions can be installed from AMO or as local `.xpi` files (including temporary installs via `about:debugging`).
 
 ## How it works
 
@@ -158,5 +158,5 @@ No `image` tag is set in `docker-compose.yml` — the image is always built loca
 2. On RDP connection, it launches Openbox as the window manager
 3. Firefox starts inside the Openbox session with a pre-configured profile
 4. The watchdog monitors the RDP TCP connection on port 3389 every 2 seconds. When the client disconnects, it sends `SIGSTOP` to Firefox (zero CPU, stays in RAM). On reconnect, it sends `SIGCONT` to resume instantly.
-5. Firefox Enterprise Policies (`policies.json`) force-install uBlock Origin from AMO (Mozilla verifies the signature), lock the Firefox Home page to `about:blank`, disable telemetry/updates/DoH/PiP
+5. Firefox Enterprise Policies (`policies.json`) force-install uBlock Origin from the bundled `.xpi` (Mozilla's signature is verified at install time), lock the Firefox Home page to `about:blank`, disable telemetry/updates/DoH/PiP
 6. Firefox `user.js` (regenerated each session) applies container-optimised about:config preferences: WebRender and hardware video decode off, GPU acceleration disabled, content processes capped at 2, all background services and speculative connections disabled

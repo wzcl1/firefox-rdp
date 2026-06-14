@@ -6,6 +6,8 @@ set -euo pipefail
 # xrdp/xrdp-sesman must remain root (see Dockerfile header comment).
 
 user="${RDP_USER:-browser}"
+uid="${RDP_UID:-1000}"
+gid="${RDP_GID:-1000}"
 
 if [ -z "${RDP_PASSWORD:-}" ]; then
     echo "ERROR: RDP_PASSWORD must be set" >&2
@@ -13,7 +15,13 @@ if [ -z "${RDP_PASSWORD:-}" ]; then
 fi
 password="$RDP_PASSWORD"
 
-id "$user" >/dev/null 2>&1 || { echo "ERROR: user $user does not exist" >&2; exit 1; }
+# Create user if it doesn't exist (needed for custom RDP_USER values).
+# With read_only: false the overlay is writable, so groupadd/useradd work.
+if ! id "$user" >/dev/null 2>&1; then
+    getent group "$user" >/dev/null 2>&1 || groupadd -g "$gid" "$user"
+    useradd -m -u "$uid" -g "$user" -s /bin/bash "$user" 2>/dev/null || true
+    id "$user" >/dev/null 2>&1 || { echo "ERROR: failed to create user $user" >&2; exit 1; }
+fi
 
 # Write directly to /etc/shadow to bypass PAM, which fails in read-only containers.
 hashed=$(openssl passwd -6 "$password")

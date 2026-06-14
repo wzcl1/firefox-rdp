@@ -29,6 +29,7 @@ services:
       - /var:size=128m,mode=0755
       - /run:size=64m,mode=0755
     volumes:
+      # Must match RDP_USER — if you change RDP_USER, update this path too.
       - firefox-profile:/home/browser
 
 volumes:

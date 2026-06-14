@@ -1,8 +1,8 @@
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 
 # Security note: The entrypoint process (xrdp/xrdp-sesman) must run as root
-# because Debian's xrdp packages require root to:
-#   - Create and manage virtual X11 displays (:10, :11, ...) via Xvnc/Xorgxrdp
+# because xrdp requires root to:
+#   - Create and manage virtual X11 displays (:10, :11, ...) via Xorgxrdp
 #   - Spawn session processes as the authenticated RDP_USER
 #   - Write to /var/run/xrdp/ for PID and socket files
 # Session processes (Firefox, Openbox) run as the unprivileged RDP_USER.
@@ -18,7 +18,9 @@ ENV DEBIAN_FRONTEND=noninteractive \
     LANG=C.UTF-8 \
     LC_ALL=C.UTF-8
 
-# Layer 1: system packages (rarely changes)
+# Layer 1: system packages + xrdp + xorgxrdp from Debian trixie (rarely changes)
+# trixie provides xrdp 0.10.1 and xorgxrdp 0.10.2 (compatible pair with RandR support).
+# xrdp 0.10.x adds proper multi-touch support for iPad and other touch devices.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         ca-certificates \
@@ -41,8 +43,8 @@ RUN apt-get update \
         xdg-utils \
         x11-utils \
         xz-utils \
-        xorgxrdp \
         xrdp \
+        xorgxrdp \
     && rm -rf /var/lib/apt/lists/*
 
 # Layer 2: Firefox + uBlock (rarely changes, ~250MB cached)
@@ -58,17 +60,16 @@ RUN if [ "$TARGETARCH" = "arm64" ]; then FIREFOX_ARCH="linux64-aarch64"; else FI
      && if [ -z "$UBLOCK_URL" ]; then echo "ERROR: failed to resolve uBlock Origin download URL" >&2; exit 1; fi \
      && wget -O "/opt/firefox/distribution/extensions/uBlock0@raymondhill.net.xpi" "$UBLOCK_URL" \
      && printf '%s\n' '{"policies":{"DisableTelemetry":true,"DisableFirefoxStudies":true,"DisableFeedbackCommands":true,"DisableFirefoxAccounts":true,"NetworkPrediction":false,"NoDefaultBookmarks":true,"PasswordManagerEnabled":false,"OfferToSaveLogins":false,"RequestedLocales":["en-US"],"SkipTermsOfUse":true,"DontCheckDefaultBrowser":true,"HardwareAcceleration":false,"BackgroundAppUpdate":false,"AppAutoUpdate":false,"ExtensionUpdate":false,"DisableSystemAddonUpdate":true,"DisableDeveloperTools":true,"DisableSetDesktopBackground":true,"DisableBuiltinPDFViewer":false,"DisableFormHistory":true,"OverrideFirstRunPage":"","OverridePostUpdatePage":"","FirefoxHome":{"Search":false,"TopSites":false,"SponsoredTopSites":false,"Highlights":false,"Pocket":false,"SponsoredPocket":false,"Snippets":false,"Locked":true},"UserMessaging":{"ExtensionRecommendations":false,"FeatureRecommendations":false,"UrlbarInterventions":false,"SkipOnboarding":true,"MoreFromMozilla":false,"FirefoxLabs":false,"Locked":true},"Homepage":{"URL":"about:blank","Locked":true,"StartPage":"homepage"},"ExtensionSettings":{"uBlock0@raymondhill.net":{"installation_mode":"force_installed","install_url":"file:///opt/firefox/distribution/extensions/uBlock0@raymondhill.net.xpi"}},"VisualSearchEnabled":false,"TranslateEnabled":false,"PictureInPicture":{"Enabled":false,"Locked":true},"PrintingEnabled":false,"XSLTEnabled":false,"SearchSuggestEnabled":false,"FirefoxSuggest":{"WebSuggestions":false,"SponsoredSuggestions":false,"ImproveSuggest":false,"Locked":true},"GoToIntranetSiteForSingleWordEntryInAddressBar":false,"IPProtectionAvailable":false,"PostQuantumKeyAgreementEnabled":false,"DisableEncryptedClientHello":false,"DNSOverHTTPS":{"Enabled":true,"Locked":true},"EnableTrackingProtection":{"Value":false,"Locked":true}}}' > /opt/firefox/distribution/policies.json \
-    && mkdir -p /opt/firefox/defaults/pref \
-    && printf 'pref("security.sandbox.warn_for_disabled_sandbox", false); pref("security.sandbox.content.level", 1);\n' > /opt/firefox/defaults/pref/sandbox-prefs.js \
-    && rm -rf /opt/firefox/crashreporter /opt/firefox/crashhelper /opt/firefox/pingsender /opt/firefox/updater /opt/firefox/updater.ini /opt/firefox/update-settings.ini /opt/firefox/vaapitest /opt/firefox/glxtest \
-    && apt-get purge -y --auto-remove wget xz-utils \
-    && rm -rf /tmp/* /var/tmp/*
+     && mkdir -p /opt/firefox/defaults/pref \
+     && printf 'pref("security.sandbox.warn_for_disabled_sandbox", false); pref("security.sandbox.content.level", 1);\n' > /opt/firefox/defaults/pref/sandbox-prefs.js \
+     && rm -rf /opt/firefox/crashreporter /opt/firefox/crashhelper /opt/firefox/pingsender /opt/firefox/updater /opt/firefox/updater.ini /opt/firefox/update-settings.ini /opt/firefox/vaapitest /opt/firefox/glxtest \
+     && apt-get purge -y --auto-remove wget xz-utils \
+     && rm -rf /tmp/* /var/tmp/*
 
 # Layer 3: user creation (rarely changes)
 # chmod 733 allows container UID 0 to write in rootless Docker where
 # UID 0 ≠ real root and can't bypass file permissions on named volumes.
-RUN adduser xrdp ssl-cert \
-    && addgroup --gid 1000 browser \
+RUN addgroup --gid 1000 browser \
     && adduser --disabled-password --gecos "" --uid 1000 --ingroup browser --shell /bin/bash browser \
     && mkdir -p /home/browser/.config/openbox \
     && chmod 733 /home/browser /home/browser/.config /home/browser/.config/openbox

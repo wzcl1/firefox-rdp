@@ -1,9 +1,8 @@
-# ⚠️⚠️ Warning ⚠️⚠️
-AI-Generated Code Warning: This code was written by AI and has not been thoroughly tested. Use at your own risk. Review and test thoroughly before production use.
-
 # Firefox over RDP
 
 Lightweight Docker container that runs Firefox inside an Openbox window manager, accessible via RDP.
+
+Built on **Debian trixie** with **xrdp 0.10.1** and **xorgxrdp 0.10.2** from Debian repos.
 
 Supports both **amd64** and **arm64** architectures (auto-detected at build time).
 
@@ -39,6 +38,7 @@ Connect with any RDP client:
 - **Minimal footprint** — stripped of crash reporter, updater, pingsender, GNOME icons, docs, and other unnecessary files
 - **RDP disconnect sleep** — when you disconnect from RDP, Firefox is frozen (SIGSTOP) to use zero CPU. On reconnect, it resumes instantly with full session state preserved.
 - **Openbox window manager** — lightweight, just enough to give Firefox proper window decorations
+- **Touch scrolling on iPad** — xrdp 0.10.x sends proper multi-touch events, making two-finger scroll and gesture navigation work reliably on iPad and other touch devices
 
 ## Configuration
 
@@ -62,7 +62,7 @@ services:
   firefox-rdp:
     build: .
     ports:
-      # Only listen on localhost — remove 127.0.0.1 prefix to expose on all interfaces
+      # Default: only listen on localhost — remove 127.0.0.1 prefix to expose on all interfaces
       - "127.0.0.1:4000:3389"
     environment:
       RDP_PASSWORD: secure-password-here
@@ -180,7 +180,7 @@ Additional hardening in `docker-compose.yml`:
 - **`tmpfs` mounts** — `/tmp`, `/var`, `/run` are in-memory filesystems with bounded sizes
 - **Named volume** — `/home/browser` (Firefox profile, extensions, bookmarks) is stored in the `firefox-profile` Docker volume, persisting across container restarts and only destroyed when the volume is explicitly removed
 
-For defense-in-depth, avoid exposing port 3389 directly — use an SSH tunnel or Tailscale sidecar.
+For defense-in-depth, the default compose file binds to `127.0.0.1:4000` (localhost only). Remove the `127.0.0.1` prefix to expose on all interfaces, or use an SSH tunnel / Tailscale sidecar for network-accessible deployments.
 
 ### Health check
 

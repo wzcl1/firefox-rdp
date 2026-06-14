@@ -22,6 +22,7 @@ services:
       - SETUID
       - SETGID
       - DAC_READ_SEARCH
+      - CHOWN
     # xrdp writes to /etc (shadow via sed), /tmp, /var, /run (tmpfs) and
     # /home/RDP_USER (named volume).
     read_only: false

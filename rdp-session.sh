@@ -193,18 +193,13 @@ trap cleanup EXIT INT TERM
 openbox &
 wm_pid="$!"
 
-# Wait for X server and window manager to be ready
-for i in $(seq 1 10); do
-    xdpyinfo >/dev/null 2>&1 && break
-    sleep 0.5
-done
+# Brief pause for X server to stabilize after connection
+sleep 1
 
-if ! xdpyinfo >/dev/null 2>&1; then
-    echo "[rdp-session] ERROR: X server not available after 5s" >&2
-    exit 1
-fi
+# Log DISPLAY for debugging
+echo "[rdp-session] DISPLAY=${DISPLAY:-<unset>} PROFILE=$PROFILE_DIR" >&2
 
-firefox --no-remote --new-instance --profile "$PROFILE_DIR" ${FIREFOX_ARGS:-} "${FIREFOX_START_URL:-about:blank}" &
+firefox --no-remote --new-instance --no-sandbox --profile "$PROFILE_DIR" ${FIREFOX_ARGS:-} "${FIREFOX_START_URL:-about:blank}" &
 firefox_pid=$!
 echo "$firefox_pid" > /tmp/firefox.pid
 wait "$firefox_pid"

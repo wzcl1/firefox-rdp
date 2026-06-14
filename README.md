@@ -160,6 +160,8 @@ No `image` tag is set in `docker-compose.yml` — the image is always built loca
 - xrdp uses password-based login — put it behind a VPN, SSH tunnel, or trusted private network for real deployments
 - The container runs with `--shm-size=2gb` to prevent browser crashes from Docker's small default shared memory
 
+> **Supply chain risk:** The Dockerfile downloads Firefox and uBlock Origin from their respective CDN and GitHub APIs without version pinning or SHA checksum verification. A compromised or MITM'd download could supply tampered binaries. For untrusted build environments, pin to specific versions and verify checksums before running.
+
 ### Privilege model
 
 The container uses a layered approach to minimise the root attack surface:

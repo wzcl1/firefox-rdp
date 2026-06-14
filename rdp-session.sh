@@ -6,6 +6,15 @@ export NO_AT_BRIDGE=1
 export XDG_RUNTIME_DIR="/tmp/runtime-${USER:-browser}"
 export HOME="${HOME:-/home/${USER:-browser}}"
 
+# xrdp-sesman should set DISPLAY, but if it's missing (e.g. env exports
+# interfere), detect it from the X11 socket created by xorgxrdp.
+if [ -z "${DISPLAY:-}" ]; then
+    for sock in /tmp/.X11-unix/X*; do
+        [ -S "$sock" ] && export DISPLAY=":${sock##*/X}" && break
+    done
+fi
+echo "[rdp-session] DISPLAY=${DISPLAY:-<unset>}" >&2
+
 # Firefox performance tuning -- disable GPU features in container
 export MOZ_WEBRENDER=0
 export MOZ_GLX_TEST=0

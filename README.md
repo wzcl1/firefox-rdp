@@ -55,6 +55,8 @@ Environment variables in `docker-compose.yml`:
 | `FIREFOX_PROCESSES` | auto-detect     | Override `dom.ipc.processCount` (default: scaled by RAM) |
 | `FIREFOX_CACHE_MB`  | auto-detect     | Override `browser.cache.memory.capacity` in MB (default: scaled by RAM) |
 
+> **Security note:** `RDP_PASSWORD` is passed as a Docker environment variable, which means it's visible via `docker inspect <container>` and in process listings on the host. Avoid running this alongside untrusted workloads. For production use, consider mounting the password as a file secret or using Docker secrets instead of a plain environment variable.
+
 ### Example with custom options
 
 ```yaml
@@ -126,7 +128,7 @@ When you reconnect, the watchdog detects the new TCP connection and sends `SIGCO
 
 | Behaviour | Detail |
 |-----------|--------|
-| Detection | Polls `ss -tn state established dst :3389` every 2 seconds |
+| Detection | Polls `ss -tn state established sport :3389` every 2 seconds |
 | Debounce | 1-second confirmation delay before acting on state change, preventing thrashing from connection flaps |
 | Freeze | `SIGSTOP` — process suspended by kernel, zero CPU |
 | Thaw | `SIGCONT` — process resumes instantly |
@@ -172,7 +174,7 @@ The container uses a layered approach to minimise the root attack surface:
 
 Additional hardening in `docker-compose.yml`:
 
-- **`cap_drop: [ALL]`** — all Linux capabilities are dropped, then only `NET_BIND_SERVICE`, `SYS_ADMIN`, and `DAC_OVERRIDE` are restored (minimum required for xrdp)
+- **`cap_drop: [ALL]`** — all Linux capabilities are dropped, then only `NET_BIND_SERVICE`, `SETUID`, and `DAC_READ_SEARCH` are restored (minimum required for xrdp)
 - **`read_only: true`** — the root filesystem is read-only; only `/tmp`, `/var`, `/run`, and the user's home directories are writable via tmpfs mounts
 - **`tmpfs` mounts** — `/tmp`, `/var`, `/run` are in-memory filesystems with bounded sizes
 - **Named volume** — `/home/browser` (Firefox profile, extensions, bookmarks) is stored in the `firefox-profile` Docker volume, persisting across container restarts and only destroyed when the volume is explicitly removed

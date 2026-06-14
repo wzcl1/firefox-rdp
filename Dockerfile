@@ -51,7 +51,8 @@ RUN apt-get update \
     && UBLOCK_URL=$(wget -qO- https://api.github.com/repos/gorhill/uBlock/releases/latest \
          | grep "browser_download_url.*firefox.signed.xpi" \
          | head -1 | cut -d'"' -f4) \
-    && wget -O "/opt/firefox/distribution/extensions/uBlock0@raymondhill.net.xpi" "$UBLOCK_URL" \
+     && if [ -z "$UBLOCK_URL" ]; then echo "ERROR: failed to resolve uBlock Origin download URL" >&2; exit 1; fi \
+     && wget -O "/opt/firefox/distribution/extensions/uBlock0@raymondhill.net.xpi" "$UBLOCK_URL" \
      && printf '%s\n' '{"policies":{"DisableTelemetry":true,"DisableFirefoxStudies":true,"DisableFeedbackCommands":true,"DisableFirefoxAccounts":true,"NetworkPrediction":false,"NoDefaultBookmarks":true,"PasswordManagerEnabled":false,"OfferToSaveLogins":false,"RequestedLocales":["en-US"],"SkipTermsOfUse":true,"DontCheckDefaultBrowser":true,"HardwareAcceleration":false,"BackgroundAppUpdate":false,"AppAutoUpdate":false,"ExtensionUpdate":false,"DisableSystemAddonUpdate":true,"DisableDeveloperTools":true,"DisableSetDesktopBackground":true,"DisableBuiltinPDFViewer":false,"DisableFormHistory":true,"OverrideFirstRunPage":"","OverridePostUpdatePage":"","FirefoxHome":{"Search":false,"TopSites":false,"SponsoredTopSites":false,"Highlights":false,"Pocket":false,"SponsoredPocket":false,"Snippets":false,"Locked":true},"UserMessaging":{"ExtensionRecommendations":false,"FeatureRecommendations":false,"UrlbarInterventions":false,"SkipOnboarding":true,"MoreFromMozilla":false,"FirefoxLabs":false,"Locked":true},"Homepage":{"URL":"about:blank","Locked":true,"StartPage":"homepage"},"ExtensionSettings":{"uBlock0@raymondhill.net":{"installation_mode":"force_installed","install_url":"file:///opt/firefox/distribution/extensions/uBlock0@raymondhill.net.xpi"}},"VisualSearchEnabled":false,"TranslateEnabled":false,"PictureInPicture":{"Enabled":false,"Locked":true},"PrintingEnabled":false,"XSLTEnabled":false,"SearchSuggestEnabled":false,"FirefoxSuggest":{"WebSuggestions":false,"SponsoredSuggestions":false,"ImproveSuggest":false,"Locked":true},"GoToIntranetSiteForSingleWordEntryInAddressBar":false,"IPProtectionAvailable":false,"PostQuantumKeyAgreementEnabled":false,"DisableEncryptedClientHello":false,"DNSOverHTTPS":{"Enabled":true,"Locked":true},"EnableTrackingProtection":{"Value":false,"Locked":true}}}' > /opt/firefox/distribution/policies.json \
     && rm -rf /opt/firefox/crashreporter /opt/firefox/crashhelper /opt/firefox/pingsender /opt/firefox/updater /opt/firefox/updater.ini /opt/firefox/update-settings.ini /opt/firefox/vaapitest /opt/firefox/glxtest \
     && apt-get purge -y --auto-remove wget xz-utils \
@@ -70,6 +71,6 @@ RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/rdp-session.sh /usr/loc
 EXPOSE 3389
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD ss -tln state listening dst :3389 >/dev/null 2>&1 || exit 1
+    CMD ss -tln state listening sport :3389 >/dev/null 2>&1 || exit 1
 
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/entrypoint.sh"]

@@ -1,5 +1,5 @@
 #!/bin/sh
-set -eu
+set -euo pipefail
 
 # Security: this script runs as root to perform user setup and start xrdp.
 # The watchdog process is dropped to the unprivileged RDP_USER after setup.

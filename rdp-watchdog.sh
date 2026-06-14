@@ -2,6 +2,7 @@
 set -eu
 
 SUSPENDED=0
+FF_PIDFILE="/tmp/firefox.pid"
 LOG="/tmp/watchdog.log"
 DEBOUNCE=1
 LOG_MAX=1048576
@@ -10,34 +11,30 @@ ROTATE_COUNT=0
 
 echo "watchdog started" > "$LOG"
 
-rotate_log() {
-    if [ -f "$LOG" ] && [ "$(wc -c < "$LOG" 2>/dev/null || echo 0)" -gt "$LOG_MAX" ]; then
-        tail -c "$LOG_MAX" "$LOG" > "${LOG}.tmp" 2>/dev/null && mv "${LOG}.tmp" "$LOG"
-    fi
-}
-
 while true; do
     ROTATE_COUNT=$((ROTATE_COUNT + 1))
     if [ "$ROTATE_COUNT" -ge "$ROTATE_INTERVAL" ]; then
-        rotate_log
+        if [ -f "$LOG" ] && [ "$(wc -c < "$LOG" 2>/dev/null || echo 0)" -gt "$LOG_MAX" ]; then
+            tail -c "$LOG_MAX" "$LOG" > "${LOG}.tmp" 2>/dev/null && mv "${LOG}.tmp" "$LOG"
+        fi
         ROTATE_COUNT=0
     fi
 
-    if ss -tn state established dst :3389 >/dev/null 2>&1; then
+    if ss -tn state established sport :3389 >/dev/null 2>&1; then
         if [ "$SUSPENDED" -eq 1 ]; then
             sleep "$DEBOUNCE"
-            if ss -tn state established dst :3389 >/dev/null 2>&1; then
+            if ss -tn state established sport :3389 >/dev/null 2>&1; then
                 echo "$(date) CONNECTED -> resume Firefox" >> "$LOG"
-                pkill -CONT -f "firefox" 2>/dev/null || true
+                kill -CONT "$(cat "$FF_PIDFILE")" 2>/dev/null || true
                 SUSPENDED=0
             fi
         fi
     else
         if [ "$SUSPENDED" -eq 0 ]; then
             sleep "$DEBOUNCE"
-            if ! ss -tn state established dst :3389 >/dev/null 2>&1; then
+            if ! ss -tn state established sport :3389 >/dev/null 2>&1; then
                 echo "$(date) DISCONNECTED -> freeze Firefox" >> "$LOG"
-                pkill -STOP -f "firefox" 2>/dev/null || true
+                kill -STOP "$(cat "$FF_PIDFILE")" 2>/dev/null || true
                 SUSPENDED=1
             fi
         fi

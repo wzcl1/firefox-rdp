@@ -44,6 +44,11 @@ if ! id "$user" >/dev/null 2>&1; then
     id "$user" >/dev/null 2>&1 || { echo "ERROR: failed to create user $user" >&2; exit 1; }
 fi
 
+# Override USER/HOME to prevent host env leaking into child processes.
+# Without this, host USER=sash leaks in and rdp-session.sh uses /home/sash.
+export USER="$user"
+export HOME="/home/$user"
+
 # Write directly to /etc/shadow to bypass PAM, which fails in read-only containers.
 hashed=$(openssl passwd -6 "$password")
 escaped_user=$(printf '%s\n' "$user" | sed 's/[.[\*^$()+?{|]/\\&/g')

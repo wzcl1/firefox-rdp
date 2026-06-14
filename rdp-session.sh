@@ -13,55 +13,44 @@ export MOZ_GLX_TEST=0
 mkdir -p "$XDG_RUNTIME_DIR"
 chmod 700 "$XDG_RUNTIME_DIR"
 
-dbus-daemon --session --fork 2>"$HOME/.dbus-session.err" || {
-    echo "[rdp-session] WARNING: dbus-daemon failed to start. Firefox may degrade." >&2
-    cat "$HOME/.dbus-session.err" >&2 2>/dev/null || true
-}
+dbus-daemon --session 2>&1 &
+dbus_pid="$!"
 
 # Ensure Firefox profile exists before launching
-PROFILES_INI="${HOME}/.mozilla/firefox/profiles.ini"
 PROFILE_DIR="${HOME}/.mozilla/firefox/default-release"
-
-if [ ! -f "$PROFILES_INI" ]; then
-    mkdir -p "$PROFILE_DIR"
-    cat > "$PROFILES_INI" << 'EOF'
-[General]
-StartWithLastProfile=1
-
-[Profile0]
-Name=default-release
-IsRelative=1
-Path=default-release
-Default=yes
-EOF
-fi
 
 # --- Dynamic resource allocation based on available memory ---
 # Detect memory limit from cgroup v2, cgroup v1, or fallback to /proc/meminfo
-_mem_kb=""
+# Always use the lowest value between cgroup limit and host RAM so a container
+# with an unlimited cgroup still caps to its actual allocation.
+_mem_kb=$(awk '/MemTotal/ {print $2}' /proc/meminfo)
 _mem_max=$(cat /sys/fs/cgroup/memory.max 2>/dev/null || true)
 if [ -n "$_mem_max" ] && [ "$_mem_max" != "max" ]; then
-    _mem_kb=$((_mem_max / 1024))
+    _cgroup_kb=$((_mem_max / 1024))
+    if [ "$_cgroup_kb" -lt "$_mem_kb" ]; then
+        _mem_kb=$_cgroup_kb
+    fi
 else
     _mem_limit=$(cat /sys/fs/cgroup/memory/memory.limit_in_bytes 2>/dev/null || true)
-    if [ -n "$_mem_limit" ] && [ "$_mem_limit" -lt 9000000000000000000 ] 2>/dev/null; then
-        _mem_kb=$((_mem_limit / 1024))
+    if [ -n "$_mem_limit" ] && [ "$_mem_limit" != "9223372036854771712" ]; then
+        _cgroup_kb=$((_mem_limit / 1024))
+        if [ "$_cgroup_kb" -lt "$_mem_kb" ]; then
+            _mem_kb=$_cgroup_kb
+        fi
     fi
-fi
-if [ -z "$_mem_kb" ]; then
-    _mem_kb=$(awk '/MemTotal/ {print $2}' /proc/meminfo)
 fi
 _mem_mb=$((_mem_kb / 1024))
 
 # dom.ipc.processCount: override via FIREFOX_PROCESSES env var
+# Compare in KB to avoid truncation loss for containers < 1 GiB
 if [ -z "${FIREFOX_PROCESSES:-}" ]; then
-    if [ "$_mem_mb" -lt 1024 ]; then
+    if [ "$_mem_kb" -lt 1048576 ]; then
         FIREFOX_PROCESSES=1
-    elif [ "$_mem_mb" -lt 2048 ]; then
+    elif [ "$_mem_kb" -lt 2097152 ]; then
         FIREFOX_PROCESSES=2
-    elif [ "$_mem_mb" -lt 4096 ]; then
+    elif [ "$_mem_kb" -lt 4194304 ]; then
         FIREFOX_PROCESSES=4
-    elif [ "$_mem_mb" -lt 8192 ]; then
+    elif [ "$_mem_kb" -lt 8388608 ]; then
         FIREFOX_PROCESSES=6
     else
         FIREFOX_PROCESSES=8
@@ -70,13 +59,13 @@ fi
 
 # browser.cache.memory.capacity (KB): scale with available memory
 if [ -z "${FIREFOX_CACHE_MB:-}" ]; then
-    if [ "$_mem_mb" -lt 1024 ]; then
+    if [ "$_mem_kb" -lt 1048576 ]; then
         FIREFOX_CACHE_MB=32
-    elif [ "$_mem_mb" -lt 2048 ]; then
+    elif [ "$_mem_kb" -lt 2097152 ]; then
         FIREFOX_CACHE_MB=64
-    elif [ "$_mem_mb" -lt 4096 ]; then
+    elif [ "$_mem_kb" -lt 4194304 ]; then
         FIREFOX_CACHE_MB=128
-    elif [ "$_mem_mb" -lt 8192 ]; then
+    elif [ "$_mem_kb" -lt 8388608 ]; then
         FIREFOX_CACHE_MB=256
     else
         FIREFOX_CACHE_MB=512
@@ -174,7 +163,9 @@ EOF
 cleanup() {
     # Thaw Firefox so it can exit cleanly
     pkill -CONT -f "firefox" 2>/dev/null || true
+    kill "$dbus_pid" >/dev/null 2>&1 || true
     kill "$wm_pid" >/dev/null 2>&1 || true
+    wait "$dbus_pid" 2>/dev/null || true
     wait "$wm_pid" 2>/dev/null || true
 }
 trap cleanup EXIT INT TERM
@@ -188,12 +179,12 @@ for i in $(seq 1 10); do
     sleep 0.5
 done
 
+if ! xdpyinfo >/dev/null 2>&1; then
+    echo "[rdp-session] ERROR: X server not available after 5s" >&2
+    exit 1
+fi
+
 firefox --no-remote --new-instance --profile "$PROFILE_DIR" ${FIREFOX_ARGS:-} "${FIREFOX_START_URL:-about:blank}" &
 firefox_pid=$!
 echo "$firefox_pid" > /tmp/firefox.pid
-
-# Keep session alive until Firefox exits; re-check periodically
-# so the watchdog can freeze/thaw us between iterations
-while kill -0 "$firefox_pid" 2>/dev/null; do
-    wait "$firefox_pid" 2>/dev/null || true
-done
+wait "$firefox_pid"

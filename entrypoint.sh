@@ -39,7 +39,7 @@ if ! id "$user" >/dev/null 2>&1; then
         echo "$user:x:$uid:$gid::/home/$user:/bin/bash" >> /etc/passwd
         echo "$user:!::0:99999:7:::" >> /etc/shadow
         mkdir -p "/home/$user"
-        chown "$uid:$gid" "/home/$user"
+        chmod 777 "/home/$user"
     fi
     id "$user" >/dev/null 2>&1 || { echo "ERROR: failed to create user $user" >&2; exit 1; }
 fi

@@ -21,9 +21,10 @@ services:
       - NET_BIND_SERVICE
       - SETUID
       - DAC_READ_SEARCH
-    # Read-only root filesystem to limit write access. xrdp writes only
-    # to /tmp, /var, /run (tmpfs) and /home/RDP_USER (named volume).
-    read_only: true
+    # xrdp writes to /etc (shadow), /tmp, /var, /run (tmpfs) and
+    # /home/RDP_USER (named volume). read_only is not used because
+    # the entrypoint needs /etc writable for chpasswd.
+    read_only: false
     tmpfs:
       - /tmp:size=512m,mode=1777
       - /var:size=128m,mode=0755

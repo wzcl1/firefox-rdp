@@ -12,24 +12,8 @@ if [ -z "${RDP_PASSWORD:-}" ]; then
     exit 1
 fi
 password="$RDP_PASSWORD"
-uid="${RDP_UID:-1000}"
-gid="${RDP_GID:-1000}"
 
-if ! getent group "$user" >/dev/null 2>&1; then
-    for i in {1..30}; do
-        groupadd -g "$gid" "$user" 2>/dev/null && break
-        sleep 0.2
-    done
-    getent group "$user" >/dev/null 2>&1 || { echo "ERROR: groupadd failed after retries" >&2; exit 1; }
-fi
-
-if ! id "$user" >/dev/null 2>&1; then
-    for i in {1..30}; do
-        useradd -m -u "$uid" -g "$user" -s /bin/bash "$user" 2>/dev/null && break
-        sleep 0.2
-    done
-    id "$user" >/dev/null 2>&1 || { echo "ERROR: useradd failed after retries" >&2; exit 1; }
-fi
+id "$user" >/dev/null 2>&1 || { echo "ERROR: user $user does not exist" >&2; exit 1; }
 
 echo "$user:$password" | chpasswd
 install -d -m 700 -o "$user" -g "$user" "/home/$user/.config/openbox"

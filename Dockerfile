@@ -57,7 +57,9 @@ RUN apt-get update \
     && rm -rf /opt/firefox/crashreporter /opt/firefox/crashhelper /opt/firefox/pingsender /opt/firefox/updater /opt/firefox/updater.ini /opt/firefox/update-settings.ini /opt/firefox/vaapitest /opt/firefox/glxtest \
     && apt-get purge -y --auto-remove wget xz-utils \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /usr/share/doc /usr/share/man /usr/share/info /usr/share/locale /usr/share/icons/Adwaita /usr/share/poppler /usr/share/ghostscript \
-    && adduser xrdp ssl-cert
+    && adduser xrdp ssl-cert \
+    && addgroup --gid 1000 browser \
+    && adduser --disabled-password --gecos "" --uid 1000 --ingroup browser --shell /bin/bash browser
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY rdp-session.sh /usr/local/bin/rdp-session.sh

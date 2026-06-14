@@ -15,6 +15,10 @@ chmod 700 "$XDG_RUNTIME_DIR"
 
 dbus-daemon --session 2>&1 &
 dbus_pid="$!"
+sleep 0.2
+if ! kill -0 "$dbus_pid" 2>/dev/null; then
+    echo "[rdp-session] WARNING: dbus-daemon failed to start. Firefox may degrade." >&2
+fi
 
 # Ensure Firefox profile exists before launching
 PROFILE_DIR="${HOME}/.mozilla/firefox/default-release"
@@ -32,12 +36,15 @@ if [ -n "$_mem_max" ] && [ "$_mem_max" != "max" ]; then
     fi
 else
     _mem_limit=$(cat /sys/fs/cgroup/memory/memory.limit_in_bytes 2>/dev/null || true)
-    if [ -n "$_mem_limit" ] && [ "$_mem_limit" != "9223372036854771712" ]; then
-        _cgroup_kb=$((_mem_limit / 1024))
-        if [ "$_cgroup_kb" -lt "$_mem_kb" ]; then
-            _mem_kb=$_cgroup_kb
-        fi
-    fi
+    case "$_mem_limit" in
+        ''|max|9223372036854771712) ;;
+        *)
+            _cgroup_kb=$((_mem_limit / 1024))
+            if [ "$_cgroup_kb" -lt "$_mem_kb" ]; then
+                _mem_kb=$_cgroup_kb
+            fi
+            ;;
+    esac
 fi
 _mem_mb=$((_mem_kb / 1024))
 

@@ -128,7 +128,7 @@ When you reconnect, the watchdog detects the new TCP connection and sends `SIGCO
 
 | Behaviour | Detail |
 |-----------|--------|
-| Detection | Polls `ss -tn state established sport :3389` every 2 seconds |
+| Detection | Polls `ss -tn state established | grep ':3389 '` every 2 seconds |
 | Debounce | 1-second confirmation delay before acting on state change, preventing thrashing from connection flaps |
 | Freeze | `SIGSTOP` — process suspended by kernel, zero CPU |
 | Thaw | `SIGCONT` — process resumes instantly |

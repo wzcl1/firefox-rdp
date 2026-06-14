@@ -20,10 +20,10 @@ while true; do
         ROTATE_COUNT=0
     fi
 
-    if ss -tn state established sport :3389 >/dev/null 2>&1; then
+    if ss -tn state established 2>/dev/null | grep -q ':3389 '; then
         if [ "$SUSPENDED" -eq 1 ]; then
             sleep "$DEBOUNCE"
-            if ss -tn state established sport :3389 >/dev/null 2>&1; then
+            if ss -tn state established 2>/dev/null | grep -q ':3389 '; then
                 echo "$(date) CONNECTED -> resume Firefox" >> "$LOG"
                 kill -CONT "$(cat "$FF_PIDFILE")" 2>/dev/null || true
                 SUSPENDED=0
@@ -32,7 +32,7 @@ while true; do
     else
         if [ "$SUSPENDED" -eq 0 ]; then
             sleep "$DEBOUNCE"
-            if ! ss -tn state established sport :3389 >/dev/null 2>&1; then
+            if ! ss -tn state established 2>/dev/null | grep -q ':3389 '; then
                 echo "$(date) DISCONNECTED -> freeze Firefox" >> "$LOG"
                 kill -STOP "$(cat "$FF_PIDFILE")" 2>/dev/null || true
                 SUSPENDED=1

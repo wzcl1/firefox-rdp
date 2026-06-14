@@ -20,16 +20,10 @@ hashed=$(openssl passwd -6 "$password")
 escaped_user=$(printf '%s\n' "$user" | sed 's/[.[\*^$()+?{|]/\\&/g')
 sed -i "s|^${escaped_user}:.*|${user}:${hashed}:19000:0:99999:7:::|" /etc/shadow
 
-# In Docker rootless mode, container UID 0 maps to the host user, not real root.
-# Volume files owned by UID 1000 map to a different host UID, so container UID 0
-# can't write to them. Run all /home operations as the target user to avoid this.
-su -s /bin/bash "$user" <<'SETUP'
-set -eu
-mkdir -p "$HOME/.config/openbox"
-cat > "$HOME/.config/openbox/autostart" <<'EOF'
+mkdir -p "/home/$user/.config/openbox"
+cat > "/home/$user/.config/openbox/autostart" <<'EOF'
 xsetroot -solid '#202124' &
 EOF
-SETUP
 
 mkdir -p /var/run/xrdp
 rm -f /var/run/xrdp/xrdp.pid /var/run/xrdp/xrdp-sesman.pid

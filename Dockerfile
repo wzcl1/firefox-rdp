@@ -63,9 +63,13 @@ RUN if [ "$TARGETARCH" = "arm64" ]; then FIREFOX_ARCH="linux64-aarch64"; else FI
     && rm -rf /tmp/* /var/tmp/*
 
 # Layer 3: user creation (rarely changes)
+# chmod 733 allows container UID 0 to write in rootless Docker where
+# UID 0 ≠ real root and can't bypass file permissions on named volumes.
 RUN adduser xrdp ssl-cert \
     && addgroup --gid 1000 browser \
-    && adduser --disabled-password --gecos "" --uid 1000 --ingroup browser --shell /bin/bash browser
+    && adduser --disabled-password --gecos "" --uid 1000 --ingroup browser --shell /bin/bash browser \
+    && mkdir -p /home/browser/.config/openbox \
+    && chmod 733 /home/browser /home/browser/.config /home/browser/.config/openbox
 
 # Layer 4: scripts + xrdp config (changes most often — only this layer rebuilds)
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh

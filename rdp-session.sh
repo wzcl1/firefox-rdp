@@ -1,16 +1,23 @@
-#!/bin/sh
-# Temporarily enable trace for debugging — remove after diagnosis
-exec 2>/tmp/rdp-session-debug.log
-set -x
+#!/bin/bash
 
 export MOZ_ENABLE_WAYLAND=0
 export NO_AT_BRIDGE=1
 export XDG_RUNTIME_DIR="/tmp/runtime-${USER:-browser}"
 export HOME="${HOME:-/home/${USER:-browser}}"
-export MOZ_DISABLE_CONTENT_SANDBOX=1
 export MOZ_DISABLE_GMP_SANDBOX=1
 export MOZ_DISABLE_RDD_SANDBOX=1
 export DBUS_SESSION_BUS_ADDRESS="autolaunch:"
+
+# xrdp-sesman creates .Xauthority relative to its CWD (usually /),
+# not in the session user's home. Detect and point XAUTHORITY there.
+if [ -z "${XAUTHORITY:-}" ] || [ ! -f "$XAUTHORITY" ]; then
+    if [ -f "/.Xauthority" ]; then
+        export XAUTHORITY="/.Xauthority"
+    elif [ -f "$HOME/.Xauthority" ]; then
+        export XAUTHORITY="$HOME/.Xauthority"
+    fi
+fi
+chmod 644 "${XAUTHORITY:-/dev/null}" 2>/dev/null || true
 
 # xrdp-sesman should set DISPLAY, but if it's missing (e.g. env exports
 # interfere), detect it from the X11 socket created by xorgxrdp.
@@ -180,6 +187,8 @@ user_pref("toolkit.telemetry.unified", false);
 user_pref("datareporting.healthreport.uploadEnabled", false);
 user_pref("toolkit.coverage.opt-out", true);
 user_pref("browser.contentblocking.report.endpoint_url", "");
+user_pref("security.sandbox.warn_for_disabled_sandbox", false);
+user_pref("security.sandbox.content.level", 1);
 EOF
 
 cleanup() {
@@ -201,7 +210,7 @@ sleep 1
 # Log DISPLAY for debugging
 echo "[rdp-session] DISPLAY=${DISPLAY:-<unset>} PROFILE=$PROFILE_DIR" >&2
 
-firefox --no-remote --new-instance --no-sandbox --profile "$PROFILE_DIR" ${FIREFOX_ARGS:-} "${FIREFOX_START_URL:-about:blank}" > /tmp/firefox.log 2>&1 &
+firefox --no-remote --new-instance --profile "$PROFILE_DIR" ${FIREFOX_ARGS:-} "${FIREFOX_START_URL:-about:blank}" > /tmp/firefox.log 2>&1 &
 firefox_pid=$!
 echo "$firefox_pid" > /tmp/firefox.pid
 echo "[rdp-session] Firefox started with PID $firefox_pid" >&2

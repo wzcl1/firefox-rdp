@@ -62,8 +62,8 @@ services:
   firefox-rdp:
     build: .
     ports:
-      # Only listen on localhost — remove 127.0.0.1 to expose on all interfaces
-      - "127.0.0.1:4000:3389"
+      # Default: exposed on all interfaces. Add 127.0.0.1 prefix to restrict to localhost.
+      - "4000:3389"
     environment:
       RDP_PASSWORD: secure-password-here
       FIREFOX_START_URL: https://example.com
@@ -157,6 +157,8 @@ No `image` tag is set in `docker-compose.yml` — the image is always built loca
 - `RDP_PASSWORD` is required — the container will refuse to start if not set
 - xrdp uses password-based login — put it behind a VPN, SSH tunnel, or trusted private network for real deployments
 - The container runs with `--shm-size=2gb` to prevent browser crashes from Docker's small default shared memory
+- **Firefox content sandbox runs at level 1** (seccomp-bpf only) — provides syscall filtering without requiring nested user namespaces, which are blocked in rootless Docker. No `--no-sandbox` flag is used.
+- **machine-id** is generated at container startup (`dbus-uuidgen`) to enable D-Bus session bus
 
 > **Supply chain risk:** The Dockerfile downloads Firefox and uBlock Origin from their respective CDN and GitHub APIs without version pinning or SHA checksum verification. A compromised or MITM'd download could supply tampered binaries. For untrusted build environments, pin to specific versions and verify checksums before running.
 
@@ -166,15 +168,15 @@ The container uses a layered approach to minimise the root attack surface:
 
 | Process | User | Why |
 |---------|------|-----|
-| `xrdp` | root (unavoidable) | Must create virtual X11 displays, manage session lifecycle |
-| `xrdp-sesman` | root (unavoidable) | Spawns session processes as the authenticated user |
-| `rdp-watchdog` | `RDP_USER` | Only signals Firefox; root privileges dropped after startup |
+| `xrdp` | root (unavoidable) | Must bind port 3389, create virtual X11 displays, manage session lifecycle |
+| `xrdp-sesman` | root (unavoidable) | Spawns session processes as the authenticated user via setuid |
+| `rdp-watchdog` | root (rootless-namespace only) | Monitors TCP state and signals Firefox; runs as root because `su`/`setgroups` is blocked in rootless Docker. No real privilege — container UID 0 is unprivileged outside the user namespace |
 | Firefox + Openbox | `RDP_USER` | Runs fully unprivileged inside the RDP session |
 
 Additional hardening in `docker-compose.yml`:
 
-- **`cap_drop: [ALL]`** — all Linux capabilities are dropped, then only `NET_BIND_SERVICE`, `SETUID`, and `DAC_READ_SEARCH` are restored (minimum required for xrdp)
-- **`read_only: false`** — the root filesystem is writable for entrypoint user setup; `/tmp`, `/var`, `/run` are tmpfs mounts with bounded sizes
+- **`cap_drop: [ALL]`** — all Linux capabilities are dropped, then only `NET_BIND_SERVICE`, `SETUID`, `SETGID`, and `DAC_READ_SEARCH` are restored (minimum required for xrdp session switching)
+- **`read_only: false`** — the root filesystem is writable for entrypoint user setup (shadow writes, profile init); `/tmp`, `/var`, `/run` are tmpfs mounts with bounded sizes
 - **`tmpfs` mounts** — `/tmp`, `/var`, `/run` are in-memory filesystems with bounded sizes
 - **Named volume** — `/home/browser` (Firefox profile, extensions, bookmarks) is stored in the `firefox-profile` Docker volume, persisting across container restarts and only destroyed when the volume is explicitly removed
 
@@ -198,8 +200,9 @@ uBlock Origin is force-installed and cannot be removed. The `.xpi` is downloaded
 ## How it works
 
 1. The container starts xrdp (X Remote Desktop Protocol server), xrdp-sesman, and a background watchdog process
-2. The watchdog runs as the unprivileged `RDP_USER` and monitors the RDP TCP connection every 2 seconds, with a 1-second debounce to prevent rapid state changes
-3. On RDP connection, it launches Openbox as the window manager and Firefox with a pre-configured profile
+2. The watchdog monitors the RDP TCP connection every 2 seconds, with a 1-second debounce to prevent rapid state changes
+3. On RDP connection, sesman spawns a session as the authenticated user, which launches Openbox as the window manager and Firefox with a pre-configured profile
 4. When the client disconnects, the watchdog sends `SIGSTOP` to Firefox (zero CPU, stays in RAM). On reconnect, it sends `SIGCONT` to resume instantly
 5. Firefox Enterprise Policies (`policies.json`) force-install uBlock Origin from the bundled `.xpi` (Mozilla's signature is verified at install time), lock the Firefox Home page to `about:blank`, disable telemetry/updates/PiP, and enable DNS-over-HTTPS
-6. Firefox `user.js` (regenerated each session) applies container-optimised about:config preferences: WebRender and hardware video decode off, GPU acceleration disabled, content processes capped at 2, all background services and speculative connections disabled
+6. Firefox `user.js` (regenerated each session) applies container-optimised about:config preferences: WebRender and hardware video decode off, GPU acceleration disabled, content processes capped by available RAM, all background services and speculative connections disabled
+7. Firefox content sandbox runs at level 1 (seccomp-bpf) — provides syscall filtering without requiring nested user namespaces, which are blocked in rootless Docker

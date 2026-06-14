@@ -2,8 +2,7 @@ services:
   firefox-rdp:
     build: .
     ports:
-      # Only listen on localhost — remove 127.0.0.1 to expose on all interfaces
-      - "127.0.0.1:4000:3389"
+      - "4000:3389"
     environment:
       RDP_USER: browser
       RDP_PASSWORD: change-me
@@ -20,6 +19,7 @@ services:
     cap_add:
       - NET_BIND_SERVICE
       - SETUID
+      - SETGID
       - DAC_READ_SEARCH
     # xrdp writes to /etc (shadow via sed), /tmp, /var, /run (tmpfs) and
     # /home/RDP_USER (named volume).

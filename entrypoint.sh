@@ -2,12 +2,12 @@
 set -euo pipefail
 
 # Security: this script runs as root to perform user setup and start xrdp.
-# The watchdog process is dropped to the unprivileged RDP_USER after setup.
 # xrdp/xrdp-sesman must remain root (see Dockerfile header comment).
+# The watchdog runs as root because su/setgroups is blocked in rootless Docker.
 
 user="${RDP_USER:-browser}"
-uid="${RDP_UID:-1000}"
-gid="${RDP_GID:-1000}"
+uid=1000
+gid=1000
 
 if [ -z "${RDP_PASSWORD:-}" ]; then
     echo "ERROR: RDP_PASSWORD must be set" >&2
@@ -39,7 +39,7 @@ if ! id "$user" >/dev/null 2>&1; then
         echo "$user:x:$uid:$gid::/home/$user:/bin/bash" >> /etc/passwd
         echo "$user:!::0:99999:7:::" >> /etc/shadow
         mkdir -p "/home/$user"
-        chmod 777 "/home/$user"
+        chmod 777 "/home/$user" 2>/dev/null || true
     fi
     id "$user" >/dev/null 2>&1 || { echo "ERROR: failed to create user $user" >&2; exit 1; }
 fi
@@ -55,12 +55,35 @@ escaped_user=$(printf '%s\n' "$user" | sed 's/[.[\*^$()+?{|]/\\&/g')
 sed -i "s|^${escaped_user}:.*|${user}:${hashed}:19000:0:99999:7:::|" /etc/shadow
 
 mkdir -p "/home/$user/.config/openbox"
-chmod 777 "/home/$user" "/home/$user/.config" "/home/$user/.config/openbox"
+# chmod on named volumes may fail in rootless Docker (FUSE mount).
+# The Dockerfile pre-creates these with 733; ignore chmod failures.
+chmod 777 "/home/$user" "/home/$user/.config" "/home/$user/.config/openbox" 2>/dev/null || true
 cat > "/home/$user/.config/openbox/autostart" <<'EOF'
 xsetroot -solid '#202124' &
 EOF
 
-mkdir -p /var/run/xrdp
+# Pre-create Firefox profile directory and profiles.ini.
+# Firefox runs as the session user (browser) but the volume may have
+# stale root-owned dirs from previous runs. Fix ownership here.
+FF_PROFILE="/home/$user/.mozilla/firefox"
+mkdir -p "$FF_PROFILE/default-release"
+# profiles.ini tells Firefox where to find profiles
+cat > "$FF_PROFILE/profiles.ini" <<PINI
+[General]
+StartWithLastProfile=1
+
+[Profile0]
+Name=default-release
+IsRelative=1
+Path=default-release
+Default=1
+PINI
+# Fix ownership — chown may fail in rootless Docker, fall back to chmod
+chown -R "$(id -u "$user"):$(id -g "$user")" "/home/$user/.mozilla" 2>/dev/null || \
+    chmod -R 777 "/home/$user/.mozilla" 2>/dev/null || true
+
+mkdir -p /var/run/xrdp /var/lib/dbus
+[ -f /var/lib/dbus/machine-id ] || dbus-uuidgen > /var/lib/dbus/machine-id
 rm -f /var/run/xrdp/xrdp.pid /var/run/xrdp/xrdp-sesman.pid
 
 # Run the watchdog — it only signals Firefox processes and checks TCP state,

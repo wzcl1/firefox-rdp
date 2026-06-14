@@ -55,6 +55,7 @@ escaped_user=$(printf '%s\n' "$user" | sed 's/[.[\*^$()+?{|]/\\&/g')
 sed -i "s|^${escaped_user}:.*|${user}:${hashed}:19000:0:99999:7:::|" /etc/shadow
 
 mkdir -p "/home/$user/.config/openbox"
+chmod 777 "/home/$user" "/home/$user/.config" "/home/$user/.config/openbox"
 cat > "/home/$user/.config/openbox/autostart" <<'EOF'
 xsetroot -solid '#202124' &
 EOF

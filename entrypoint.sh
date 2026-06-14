@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 set -euo pipefail
 
 # Security: this script runs as root to perform user setup and start xrdp.

@@ -102,7 +102,7 @@ The `user.js` is regenerated on every session start so updates take effect. It c
 | **Animation** | `general.smoothScroll` = `false`, `layout.animation.prefers-reduced-motion` = `1`, `image.animation_mode` = `"none"` | Disables smooth scrolling, CSS animations, and animated GIFs to eliminate per-frame repaint CPU cost. |
 | **Font cache** | `gfx.content.skia-font-cache-size` = `5` | Reduces Skia font cache from 16MB to 5MB to lower memory footprint. |
 | **Process model** | `dom.ipc.processCount` = `2` | Caps content processes to 2 to fit in low-memory containers. |
-| **Cache** | `browser.cache.disk.enable` = `false`, `browser.cache.disk.capacity` = 100MB, `browser.cache.memory.enable` = `true`, `browser.cache.memory.capacity` = 128MB | Disk cache is unnecessary (profile is wiped on shutdown). Memory cache is bounded to keep the container footprint small while providing enough room for active page resources. |
+| **Cache** | `browser.cache.disk.enable` = `false`, `browser.cache.disk.capacity` = 100MB, `browser.cache.memory.enable` = `true`, `browser.cache.memory.capacity` = 128MB | Disk cache is unnecessary — memory cache handles page resources efficiently. Firefox profile and cache persist across restarts via a named Docker volume. |
 | **Session restore** | `browser.sessionhistory.max_entries` = 10, `browser.sessionstore.max_tabs_undo` = 0, `browser.sessionstore.privacy_level` = 2, `browser.sessionstore.interval` = 30s | Bounded back/forward list; no recently-closed-tabs undo (per-tab snapshots are expensive). |
 | **Network prediction** | `network.predictor.enabled` = `false`, `network.prefetch-next` = `false`, `network.dns.disablePrefetch` = `true`, `network.dns.disablePrefetchFromHTTPS` = `true`, `network.http.speculative-parallel-limit` = 0, `browser.places.speculativeConnect.enabled` = `false`, `browser.urlbar.speculativeConnect.enabled` = `false` | Kills all background pre-connection / pre-resolution work. |
 | **Connection limits** | `network.http.max-connections` = 48, `network.http.max-persistent-connections-per-server` = 6, `network.dnsCacheEntries` = 256, `network.ssl_tokens_cache_capacity` = 1000 | Lower total connection count (Firefox default is 6 per server) and reduced TLS session cache to bound resource usage. |
@@ -130,7 +130,7 @@ When you reconnect, the watchdog detects the new TCP connection and sends `SIGCO
 | Thaw | `SIGCONT` — process resumes instantly |
 | Memory | Stays in RAM (not swapped to disk) |
 | Log | Bounded to 1MB with automatic rotation |
-| Profile | Persists across disconnect/reconnect; wiped only on container restart |
+| Profile | Persists across disconnect/reconnect and container restart via Docker volume |
 
 This is transparent to the user — connect, browse, disconnect, reconnect, and your tabs are exactly where you left them.
 
@@ -172,7 +172,8 @@ Additional hardening in `docker-compose.yml`:
 
 - **`cap_drop: [ALL]`** — all Linux capabilities are dropped, then only `NET_BIND_SERVICE`, `SYS_ADMIN`, and `DAC_OVERRIDE` are restored (minimum required for xrdp)
 - **`read_only: true`** — the root filesystem is read-only; only `/tmp`, `/var`, `/run`, and the user's home directories are writable via tmpfs mounts
-- **`tmpfs` mounts** — writable paths are in-memory filesystems with bounded sizes, preventing any on-disk persistence
+- **`tmpfs` mounts** — `/tmp`, `/var`, `/run` are in-memory filesystems with bounded sizes
+- **Named volume** — `/home/browser` (Firefox profile, extensions, bookmarks) is stored in the `firefox-profile` Docker volume, persisting across container restarts and only destroyed when the volume is explicitly removed
 
 For defense-in-depth, avoid exposing port 3389 directly — use an SSH tunnel or Tailscale sidecar.
 

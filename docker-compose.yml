@@ -22,12 +22,14 @@ services:
       - SYS_ADMIN
       - DAC_OVERRIDE
     # Read-only root filesystem to limit write access. xrdp writes only
-    # to /tmp, /var, /run, and /home/RDP_USER — provided via tmpfs mounts.
+    # to /tmp, /var, /run (tmpfs) and /home/RDP_USER (named volume).
     read_only: true
     tmpfs:
       - /tmp:size=512m,mode=1777
       - /var:size=128m,mode=1777
       - /run:size=64m,mode=0755
-      - /home/browser/.mozilla:size=64m,mode=0700
-      - /home/browser/.config:size=64m,mode=0700
-      - /home/browser/.cache:size=128m,mode=0700
+    volumes:
+      - firefox-profile:/home/browser
+
+volumes:
+  firefox-profile:

@@ -77,6 +77,7 @@ COPY rdp-session.sh /usr/local/bin/rdp-session.sh
 COPY rdp-watchdog.sh /usr/local/bin/rdp-watchdog.sh
 
 RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/rdp-session.sh /usr/local/bin/rdp-watchdog.sh \
+    && sed -i 's/\r$//' /usr/local/bin/rdp-session.sh \
     && printf '#!/bin/sh\nexec /usr/local/bin/rdp-session.sh\n' > /etc/xrdp/startwm.sh \
     && chmod +x /etc/xrdp/startwm.sh \
     && sed -i 's/^port=3389/port=tcp:\/\/:3389/' /etc/xrdp/xrdp.ini \

@@ -16,19 +16,32 @@ fi
 password="$RDP_PASSWORD"
 
 # Create user if it doesn't exist (needed for custom RDP_USER values).
-# With read_only: false the overlay is writable, so groupadd/useradd work.
+# Write directly to /etc files instead of using groupadd/useradd, which fail
+# on overlay filesystems due to file locking (same reason we bypass PAM for shadow).
 if ! id "$user" >/dev/null 2>&1; then
-    if ! getent group "$user" >/dev/null 2>&1; then
+    # Find a free GID/UID if the requested ones are taken
+    if getent group "$user" >/dev/null 2>&1; then
+        grp_line=$(getent group "$user")
+    else
         if getent group "$gid" >/dev/null 2>&1; then
-            # GID already taken (e.g. browser:1000 from Dockerfile) — let useradd pick one
-            groupadd "$user"
-        else
-            groupadd -g "$gid" "$user"
+            gid=$(awk -F: '{print $3+1}' /etc/group | sort -n | tail -1)
+            [ "$gid" -lt 1000 ] && gid=1001
         fi
+        grp_line="$user:x:$gid:"
+        echo "$grp_line" >> /etc/group
+        echo "$grp_line:" >> /etc/gshadow
     fi
-    # Skip UID if already taken (e.g. browser:1000 from Dockerfile)
-    getent passwd "$uid" >/dev/null 2>&1 && uid_flag="" || uid_flag="-u $uid"
-    useradd -m $uid_flag -g "$user" -s /bin/bash "$user" || { echo "ERROR: failed to create user $user" >&2; exit 1; }
+    if ! getent passwd "$user" >/dev/null 2>&1; then
+        if getent passwd "$uid" >/dev/null 2>&1; then
+            uid=$(awk -F: '$3>=1000{print $3+1}' /etc/passwd | sort -n | tail -1)
+            [ "$uid" -lt 1000 ] && uid=1001
+        fi
+        echo "$user:x:$uid:$gid::/home/$user:/bin/bash" >> /etc/passwd
+        echo "$user:!::0:99999:7:::" >> /etc/shadow
+        mkdir -p "/home/$user"
+        chown "$uid:$gid" "/home/$user"
+    fi
+    id "$user" >/dev/null 2>&1 || { echo "ERROR: failed to create user $user" >&2; exit 1; }
 fi
 
 # Write directly to /etc/shadow to bypass PAM, which fails in read-only containers.

@@ -36,16 +36,66 @@ Default=yes
 EOF
 fi
 
+# --- Dynamic resource allocation based on available memory ---
+# Detect memory limit from cgroup v2, cgroup v1, or fallback to /proc/meminfo
+_mem_kb=""
+_mem_max=$(cat /sys/fs/cgroup/memory.max 2>/dev/null || true)
+if [ -n "$_mem_max" ] && [ "$_mem_max" != "max" ]; then
+    _mem_kb=$((_mem_max / 1024))
+else
+    _mem_limit=$(cat /sys/fs/cgroup/memory/memory.limit_in_bytes 2>/dev/null || true)
+    if [ -n "$_mem_limit" ] && [ "$_mem_limit" -lt 9000000000000000000 ] 2>/dev/null; then
+        _mem_kb=$((_mem_limit / 1024))
+    fi
+fi
+if [ -z "$_mem_kb" ]; then
+    _mem_kb=$(awk '/MemTotal/ {print $2}' /proc/meminfo)
+fi
+_mem_mb=$((_mem_kb / 1024))
+
+# dom.ipc.processCount: override via FIREFOX_PROCESSES env var
+if [ -z "${FIREFOX_PROCESSES:-}" ]; then
+    if [ "$_mem_mb" -lt 1024 ]; then
+        FIREFOX_PROCESSES=1
+    elif [ "$_mem_mb" -lt 2048 ]; then
+        FIREFOX_PROCESSES=2
+    elif [ "$_mem_mb" -lt 4096 ]; then
+        FIREFOX_PROCESSES=4
+    elif [ "$_mem_mb" -lt 8192 ]; then
+        FIREFOX_PROCESSES=6
+    else
+        FIREFOX_PROCESSES=8
+    fi
+fi
+
+# browser.cache.memory.capacity (KB): scale with available memory
+if [ -z "${FIREFOX_CACHE_MB:-}" ]; then
+    if [ "$_mem_mb" -lt 1024 ]; then
+        FIREFOX_CACHE_MB=32
+    elif [ "$_mem_mb" -lt 2048 ]; then
+        FIREFOX_CACHE_MB=64
+    elif [ "$_mem_mb" -lt 4096 ]; then
+        FIREFOX_CACHE_MB=128
+    elif [ "$_mem_mb" -lt 8192 ]; then
+        FIREFOX_CACHE_MB=256
+    else
+        FIREFOX_CACHE_MB=512
+    fi
+fi
+_FIREFOX_CACHE_KB=$((FIREFOX_CACHE_MB * 1024))
+
+echo "[rdp-session] Memory: ~${_mem_mb}MB | processes: $FIREFOX_PROCESSES | cache: ${FIREFOX_CACHE_MB}MB" >&2
+
 # Always write/overwrite user.js so pref changes take effect on update
 mkdir -p "$PROFILE_DIR"
-cat > "$PROFILE_DIR/user.js" << 'EOF'
+cat > "$PROFILE_DIR/user.js" << EOF
 // Performance tuning for container/RDP environment
 user_pref("gfx.webrender.enabled", false);
 user_pref("media.hardware-video-decoding.enabled", false);
 user_pref("media.ffmpeg.vaapi.enabled", false);
 user_pref("webgl.disabled", true);
 user_pref("layers.acceleration.disabled", true);
-user_pref("dom.ipc.processCount", 2);
+user_pref("dom.ipc.processCount", ${FIREFOX_PROCESSES});
 user_pref("browser.sessionhistory.max_entries", 10);
 user_pref("browser.sessionstore.interval", 30000);
 user_pref("browser.sessionstore.max_tabs_undo", 0);
@@ -54,7 +104,7 @@ user_pref("browser.sessionstore.privacy_level", 2);
 user_pref("browser.cache.disk.capacity", 102400);
 user_pref("browser.cache.disk.enable", false);
 user_pref("browser.cache.memory.enable", true);
-user_pref("browser.cache.memory.capacity", 131072);
+user_pref("browser.cache.memory.capacity", ${_FIREFOX_CACHE_KB});
 user_pref("browser.startup.homepage_override.mstone", "ignore");
 user_pref("browser.startup.blankWindow", false);
 user_pref("browser.pagethumbnails.capturing_disabled", true);

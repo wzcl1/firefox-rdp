@@ -52,6 +52,8 @@ Environment variables in `docker-compose.yml`:
 | `RDP_GID`           | `1000`          | Linux GID for the user                |
 | `FIREFOX_START_URL` | `about:blank`   | URL opened when the RDP session starts|
 | `FIREFOX_ARGS`      | `""`            | Extra Firefox CLI arguments           |
+| `FIREFOX_PROCESSES` | auto-detect     | Override `dom.ipc.processCount` (default: scaled by RAM) |
+| `FIREFOX_CACHE_MB`  | auto-detect     | Override `browser.cache.memory.capacity` in MB (default: scaled by RAM) |
 
 ### Example with custom options
 
@@ -101,8 +103,8 @@ The `user.js` is regenerated on every session start so updates take effect. It c
 | **GPU & media** | `gfx.webrender.enabled`, `media.hardware-video-decoding.enabled`, `media.ffmpeg.vaapi.enabled`, `layers.acceleration.disabled`, `webgl.disabled`, `gfx.canvas.accelerated` = all off | No GPU in container. WebRender / hardware video decode / canvas acceleration would either fail or force a CPU fallback path. |
 | **Animation** | `general.smoothScroll` = `false`, `layout.animation.prefers-reduced-motion` = `1`, `image.animation_mode` = `"none"` | Disables smooth scrolling, CSS animations, and animated GIFs to eliminate per-frame repaint CPU cost. |
 | **Font cache** | `gfx.content.skia-font-cache-size` = `5` | Reduces Skia font cache from 16MB to 5MB to lower memory footprint. |
-| **Process model** | `dom.ipc.processCount` = `2` | Caps content processes to 2 to fit in low-memory containers. |
-| **Cache** | `browser.cache.disk.enable` = `false`, `browser.cache.disk.capacity` = 100MB, `browser.cache.memory.enable` = `true`, `browser.cache.memory.capacity` = 128MB | Disk cache is unnecessary — memory cache handles page resources efficiently. Firefox profile and cache persist across restarts via a named Docker volume. |
+| **Process model** | `dom.ipc.processCount` scaled by available RAM | Auto-detects cgroup memory limit (or falls back to `/proc/meminfo`) and sets process count: <1 GB→1, 1–2 GB→2, 2–4 GB→4, 4–8 GB→6, ≥8 GB→8. Override via `FIREFOX_PROCESSES` env var. |
+| **Cache** | `browser.cache.disk.enable` = `false`, `browser.cache.disk.capacity` = 100MB, `browser.cache.memory.enable` = `true`, `browser.cache.memory.capacity` scaled by RAM | Memory cache scales with available RAM: <1 GB→32MB, 1–2 GB→64MB, 2–4 GB→128MB, 4–8 GB→256MB, ≥8 GB→512MB. Override via `FIREFOX_CACHE_MB` env var. Firefox profile and cache persist across restarts via a named Docker volume. |
 | **Session restore** | `browser.sessionhistory.max_entries` = 10, `browser.sessionstore.max_tabs_undo` = 0, `browser.sessionstore.privacy_level` = 2, `browser.sessionstore.interval` = 30s | Bounded back/forward list; no recently-closed-tabs undo (per-tab snapshots are expensive). |
 | **Network prediction** | `network.predictor.enabled` = `false`, `network.prefetch-next` = `false`, `network.dns.disablePrefetch` = `true`, `network.dns.disablePrefetchFromHTTPS` = `true`, `network.http.speculative-parallel-limit` = 0, `browser.places.speculativeConnect.enabled` = `false`, `browser.urlbar.speculativeConnect.enabled` = `false` | Kills all background pre-connection / pre-resolution work. |
 | **Connection limits** | `network.http.max-connections` = 48, `network.http.max-persistent-connections-per-server` = 6, `network.dnsCacheEntries` = 256, `network.ssl_tokens_cache_capacity` = 1000 | Lower total connection count (Firefox default is 6 per server) and reduced TLS session cache to bound resource usage. |

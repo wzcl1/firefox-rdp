@@ -83,7 +83,7 @@ RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/rdp-session.sh /usr/loc
     && sed -i 's/^port=3389/port=tcp:\/\/:3389/' /etc/xrdp/xrdp.ini \
     && sed -i '/param=-auth/d' /etc/xrdp/sesman.ini \
     && sed -i '/param=.Xauthority/d' /etc/xrdp/sesman.ini \
-    && sed -i '/\[Xorg\]/a param=-ac' /etc/xrdp/sesman.ini
+    && sed -i '/param=\/usr\/lib\/xorg\/Xorg/a param=-ac' /etc/xrdp/sesman.ini
 
 EXPOSE 3389
 

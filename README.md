@@ -62,8 +62,8 @@ services:
   firefox-rdp:
     build: .
     ports:
-      # Default: exposed on all interfaces. Add 127.0.0.1 prefix to restrict to localhost.
-      - "4000:3389"
+      # Only listen on localhost — remove 127.0.0.1 prefix to expose on all interfaces
+      - "127.0.0.1:4000:3389"
     environment:
       RDP_PASSWORD: secure-password-here
       FIREFOX_START_URL: https://example.com

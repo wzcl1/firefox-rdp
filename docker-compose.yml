@@ -2,7 +2,7 @@ services:
   firefox-rdp:
     build: .
     ports:
-      - "4000:3389"
+      - "127.0.0.1:4000:3389"
     environment:
       RDP_USER: browser
       RDP_PASSWORD: change-me

@@ -16,17 +16,19 @@ uid="${RDP_UID:-1000}"
 gid="${RDP_GID:-1000}"
 
 if ! getent group "$user" >/dev/null 2>&1; then
-    for i in 1 2 3; do
+    for i in {1..30}; do
         groupadd -g "$gid" "$user" 2>/dev/null && break
-        sleep 0.5
+        sleep 0.2
     done
+    getent group "$user" >/dev/null 2>&1 || { echo "ERROR: groupadd failed after retries" >&2; exit 1; }
 fi
 
 if ! id "$user" >/dev/null 2>&1; then
-    for i in 1 2 3; do
+    for i in {1..30}; do
         useradd -m -u "$uid" -g "$user" -s /bin/bash "$user" 2>/dev/null && break
-        sleep 0.5
+        sleep 0.2
     done
+    id "$user" >/dev/null 2>&1 || { echo "ERROR: useradd failed after retries" >&2; exit 1; }
 fi
 
 echo "$user:$password" | chpasswd

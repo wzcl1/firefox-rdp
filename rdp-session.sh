@@ -5,6 +5,10 @@ export MOZ_ENABLE_WAYLAND=0
 export NO_AT_BRIDGE=1
 export XDG_RUNTIME_DIR="/tmp/runtime-${USER:-browser}"
 export HOME="${HOME:-/home/${USER:-browser}}"
+export MOZ_DISABLE_CONTENT_SANDBOX=1
+export MOZ_DISABLE_GMP_SANDBOX=1
+export MOZ_DISABLE_RDD_SANDBOX=1
+export DBUS_SESSION_BUS_ADDRESS="autolaunch:"
 
 # xrdp-sesman should set DISPLAY, but if it's missing (e.g. env exports
 # interfere), detect it from the X11 socket created by xorgxrdp.

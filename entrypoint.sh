@@ -28,9 +28,9 @@ EOF
 mkdir -p /var/run/xrdp
 rm -f /var/run/xrdp/xrdp.pid /var/run/xrdp/xrdp-sesman.pid
 
-# Run the watchdog as the unprivileged user — it only signals Firefox
-# processes, which also run as $user, so root is not required.
-su -s /bin/sh -c '/usr/local/bin/rdp-watchdog.sh &' "$user"
+# Run the watchdog — it only signals Firefox processes and checks TCP state,
+# so it works fine as root. In rootless Docker, su/setgroups is blocked.
+/usr/local/bin/rdp-watchdog.sh &
 
 /usr/sbin/xrdp-sesman --nodaemon &
 exec /usr/sbin/xrdp --nodaemon

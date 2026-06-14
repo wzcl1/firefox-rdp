@@ -16,11 +16,17 @@ uid="${RDP_UID:-1000}"
 gid="${RDP_GID:-1000}"
 
 if ! getent group "$user" >/dev/null 2>&1; then
-    groupadd -g "$gid" "$user"
+    for i in 1 2 3; do
+        groupadd -g "$gid" "$user" 2>/dev/null && break
+        sleep 0.5
+    done
 fi
 
 if ! id "$user" >/dev/null 2>&1; then
-    useradd -m -u "$uid" -g "$user" -s /bin/bash "$user"
+    for i in 1 2 3; do
+        useradd -m -u "$uid" -g "$user" -s /bin/bash "$user" 2>/dev/null && break
+        sleep 0.5
+    done
 fi
 
 echo "$user:$password" | chpasswd

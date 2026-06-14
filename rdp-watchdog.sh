@@ -20,6 +20,8 @@ while true; do
         ROTATE_COUNT=0
     fi
 
+    [ -f "$FF_PIDFILE" ] || { sleep 2; continue; }
+
     if ss -tn state established 2>/dev/null | grep -q ':3389 '; then
         if [ "$SUSPENDED" -eq 1 ]; then
             sleep "$DEBOUNCE"

@@ -141,10 +141,9 @@ user_pref("layout.animation.prefers-reduced-motion", 1);
 user_pref("image.animation_mode", "none");
 user_pref("gfx.canvas.accelerated", false);
 user_pref("gfx.content.skia-font-cache-size", 5);
-user_pref("network.http.pipelining", true);
-user_pref("network.http.proxy.pipelining", true);
+
 user_pref("network.ssl_tokens_cache_capacity", 1000);
-user_pref("security.ssl.enable_ocsp_stapling", true);
+user_pref("security.ssl.enable_ocsp_stapling", false);
 user_pref("app.normandy.enabled", false);
 user_pref("app.shield.optoutstudies.enabled", false);
 user_pref("browser.newtabpage.activity-stream.feeds.telemetry", false);

@@ -7,7 +7,7 @@ services:
     environment:
       RDP_USER: browser
       RDP_PASSWORD: change-me
-      FIREFOX_START_URL: https://www.mozilla.org/
+      FIREFOX_START_URL: about:blank
     shm_size: "2gb"
     mem_limit: "4gb"
     restart: unless-stopped

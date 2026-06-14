@@ -203,9 +203,19 @@ trap cleanup EXIT INT TERM
 
 openbox &
 wm_pid="$!"
+sleep 0.3
+if ! kill -0 "$wm_pid" 2>/dev/null; then
+    echo "[rdp-session] WARNING: Openbox failed to start. Firefox may lack window manager." >&2
+fi
 
-# Brief pause for X server to stabilize after connection
-sleep 1
+# Wait for the X server to be ready (xrdp-sesman's waitforx should have
+# succeeded by now, but poll to handle edge cases on slow hosts).
+for _ in $(seq 1 20); do
+    if xdpyinfo -display "$DISPLAY" >/dev/null 2>&1; then
+        break
+    fi
+    sleep 0.5
+done
 
 # Log DISPLAY for debugging
 echo "[rdp-session] DISPLAY=${DISPLAY:-<unset>} PROFILE=$PROFILE_DIR" >&2
@@ -216,3 +226,4 @@ echo "$firefox_pid" > /tmp/firefox.pid
 echo "[rdp-session] Firefox started with PID $firefox_pid" >&2
 wait "$firefox_pid"
 echo "[rdp-session] Firefox exited with code $?" >&2
+rm -f /tmp/firefox.pid

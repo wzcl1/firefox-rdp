@@ -27,9 +27,8 @@ if ! id "$user" >/dev/null 2>&1; then
             gid=$(awk -F: '{print $3+1}' /etc/group | sort -n | tail -1)
             [ "$gid" -lt 1000 ] && gid=1001
         fi
-        grp_line="$user:x:$gid:"
-        echo "$grp_line" >> /etc/group
-        echo "$grp_line:" >> /etc/gshadow
+        echo "$user:x:$gid:" >> /etc/group
+        echo "$user:!::" >> /etc/gshadow
     fi
     if ! getent passwd "$user" >/dev/null 2>&1; then
         if getent passwd "$uid" >/dev/null 2>&1; then
@@ -39,7 +38,7 @@ if ! id "$user" >/dev/null 2>&1; then
         echo "$user:x:$uid:$gid::/home/$user:/bin/bash" >> /etc/passwd
         echo "$user:!::0:99999:7:::" >> /etc/shadow
         mkdir -p "/home/$user"
-        chmod 777 "/home/$user" 2>/dev/null || true
+        chmod 755 "/home/$user" 2>/dev/null || true
     fi
     id "$user" >/dev/null 2>&1 || { echo "ERROR: failed to create user $user" >&2; exit 1; }
 fi
@@ -55,9 +54,7 @@ escaped_user=$(printf '%s\n' "$user" | sed 's/[.[\*^$()+?{|]/\\&/g')
 sed -i "s|^${escaped_user}:.*|${user}:${hashed}:19000:0:99999:7:::|" /etc/shadow
 
 mkdir -p "/home/$user/.config/openbox"
-# chmod on named volumes may fail in rootless Docker (FUSE mount).
-# The Dockerfile pre-creates these with 733; ignore chmod failures.
-chmod 777 "/home/$user" "/home/$user/.config" "/home/$user/.config/openbox" 2>/dev/null || true
+chmod 755 "/home/$user" "/home/$user/.config" "/home/$user/.config/openbox" 2>/dev/null || true
 cat > "/home/$user/.config/openbox/autostart" <<'EOF'
 xsetroot -solid '#202124' &
 EOF
@@ -66,9 +63,10 @@ EOF
 # Firefox runs as the session user (browser) but the volume may have
 # stale root-owned dirs from previous runs. Fix ownership here.
 FF_PROFILE="/home/$user/.mozilla/firefox"
-mkdir -p "$FF_PROFILE/default-release"
+mkdir -p "$FF_PROFILE/default-release" 2>/dev/null || true
+chmod -R 700 "/home/$user/.mozilla" 2>/dev/null || true
 # profiles.ini tells Firefox where to find profiles
-cat > "$FF_PROFILE/profiles.ini" <<PINI
+cat > "$FF_PROFILE/profiles.ini" 2>/dev/null <<PINI || true
 [General]
 StartWithLastProfile=1
 
@@ -78,9 +76,7 @@ IsRelative=1
 Path=default-release
 Default=1
 PINI
-# Fix ownership — chown may fail in rootless Docker, fall back to chmod
-chown -R "$(id -u "$user"):$(id -g "$user")" "/home/$user/.mozilla" 2>/dev/null || \
-    chmod -R 777 "/home/$user/.mozilla" 2>/dev/null || true
+chown -R "$(id -u "$user"):$(id -g "$user")" "/home/$user/.mozilla" 2>/dev/null || true
 
 mkdir -p /var/run/xrdp /var/lib/dbus
 [ -f /var/lib/dbus/machine-id ] || dbus-uuidgen > /var/lib/dbus/machine-id

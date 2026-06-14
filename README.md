@@ -1,3 +1,6 @@
+# ⚠️ AI-Generated Code
+This code was written with AI assistance and has not been formally audited. Review and test before using in production.
+
 # Firefox over RDP
 
 Lightweight Docker container that runs Firefox inside an Openbox window manager, accessible via RDP.
@@ -47,7 +50,7 @@ Environment variables in `docker-compose.yml`:
 | Variable            | Default         | Description                            |
 |---------------------|-----------------|----------------------------------------|
 | `RDP_USER`          | `browser`       | Linux/RDP username                    |
-| `RDP_PASSWORD`      | *(required)*    | Linux/RDP password (no default — must be set) |
+| `RDP_PASSWORD`      | `change-me`     | Linux/RDP password (container refuses to start if unset; docker-compose.yml includes a default for quick start) |
 | `FIREFOX_START_URL` | `about:blank`   | URL opened when the RDP session starts|
 | `FIREFOX_ARGS`      | `""`            | Extra Firefox CLI arguments           |
 | `FIREFOX_PROCESSES` | auto-detect     | Override `dom.ipc.processCount` (default: scaled by RAM) |

@@ -48,8 +48,6 @@ Environment variables in `docker-compose.yml`:
 |---------------------|-----------------|----------------------------------------|
 | `RDP_USER`          | `browser`       | Linux/RDP username                    |
 | `RDP_PASSWORD`      | *(required)*    | Linux/RDP password (no default — must be set) |
-| `RDP_UID`           | `1000`          | Linux UID for the user                |
-| `RDP_GID`           | `1000`          | Linux GID for the user                |
 | `FIREFOX_START_URL` | `about:blank`   | URL opened when the RDP session starts|
 | `FIREFOX_ARGS`      | `""`            | Extra Firefox CLI arguments           |
 | `FIREFOX_PROCESSES` | auto-detect     | Override `dom.ipc.processCount` (default: scaled by RAM) |
@@ -94,7 +92,7 @@ Applied at startup, locked so the user cannot override them. The JSON is embedde
 | **Browser cleanup** | `DisableFormHistory`, `PasswordManagerEnabled`, `OfferToSaveLogins` = `false` | No password manager; form history disabled. `SanitizeOnShutdown` was removed so the Firefox profile persists across RDP disconnect/reconnect and container restarts. |
 | **Misc hardening** | `SkipTermsOfUse`, `DontCheckDefaultBrowser`, `DisableSetDesktopBackground`, `DisableBuiltinPDFViewer` = `false`, `GoToIntranetSiteForSingleWordEntryInAddressBar` = `false`, `IPProtectionAvailable` = `false` | Skips onboarding dialogs and silent connections. PDF viewer left enabled — its CPU cost is bounded to active viewing (idle tabs do nothing). |
 
-The full policy is in `Dockerfile:46` (single-line JSON written via `printf`).
+The full policy is in the Dockerfile (single-line JSON written via `printf`).
 
 ### `user.js` Profile Preferences (written by `rdp-session.sh`)
 
@@ -117,7 +115,7 @@ The `user.js` is regenerated on every session start so updates take effect. It c
 | **UI noise** | `browser.startup.homepage_override.mstone` = `ignore`, `browser.startup.blankWindow` = `false`, `accessibility.force_disabled` = 1, `clipboard.autocopy` = `false` | Suppresses the blank-window flash during startup, the accessibility walker, and Linux selection autocopy. |
 | **Telemetry** | `app.normandy.enabled`, `app.shield.optoutstudies.enabled`, `browser.newtabpage.activity-stream.feeds.telemetry`, `browser.newtabpage.activity-stream.telemetry`, `browser.ping-centre.telemetry`, `toolkit.telemetry.unified`, `datareporting.healthreport.uploadEnabled` = `false`; `toolkit.coverage.opt-out` = `true`; `browser.contentblocking.report.endpoint_url` = `""` | Disables all telemetry, Shield experiments, health reporting, and content-blocking reporting to eliminate background network calls and CPU overhead. |
 
-The full `user.js` is in `rdp-session.sh:41-114`.
+The full `user.js` is generated in `rdp-session.sh`.
 
 ## RDP Disconnect Sleep
 
@@ -176,7 +174,7 @@ The container uses a layered approach to minimise the root attack surface:
 Additional hardening in `docker-compose.yml`:
 
 - **`cap_drop: [ALL]`** — all Linux capabilities are dropped, then only `NET_BIND_SERVICE`, `SETUID`, and `DAC_READ_SEARCH` are restored (minimum required for xrdp)
-- **`read_only: true`** — the root filesystem is read-only; only `/tmp`, `/var`, `/run`, and the user's home directories are writable via tmpfs mounts
+- **`read_only: false`** — the root filesystem is writable for entrypoint user setup; `/tmp`, `/var`, `/run` are tmpfs mounts with bounded sizes
 - **`tmpfs` mounts** — `/tmp`, `/var`, `/run` are in-memory filesystems with bounded sizes
 - **Named volume** — `/home/browser` (Firefox profile, extensions, bookmarks) is stored in the `firefox-profile` Docker volume, persisting across container restarts and only destroyed when the volume is explicitly removed
 

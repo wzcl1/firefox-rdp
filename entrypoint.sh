@@ -17,7 +17,8 @@ id "$user" >/dev/null 2>&1 || { echo "ERROR: user $user does not exist" >&2; exi
 
 # Write directly to /etc/shadow to bypass PAM, which fails in read-only containers.
 hashed=$(openssl passwd -6 "$password")
-sed -i "s|^${user}:.*|${user}:${hashed}:19000:0:99999:7:::|" /etc/shadow
+escaped_user=$(printf '%s\n' "$user" | sed 's/[.[\*^$()+?{|]/\\&/g')
+sed -i "s|^${escaped_user}:.*|${user}:${hashed}:19000:0:99999:7:::|" /etc/shadow
 mkdir -p "/home/$user/.config/openbox"
 chown -R "$user:$user" "/home/$user/.config"
 chmod 700 "/home/$user/.config/openbox"

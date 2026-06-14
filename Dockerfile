@@ -6,7 +6,7 @@ FROM debian:bookworm-slim
 #   - Spawn session processes as the authenticated RDP_USER
 #   - Write to /var/run/xrdp/ for PID and socket files
 # Session processes (Firefox, Openbox) run as the unprivileged RDP_USER.
-# The docker-compose.yml applies defense-in-depth: cap_drop ALL, read_only fs,
+# The docker-compose.yml applies defense-in-depth: cap_drop ALL,
 # and only restores the minimum capabilities xrdp requires.
 
 ARG TARGETARCH

@@ -19,15 +19,17 @@ id "$user" >/dev/null 2>&1 || { echo "ERROR: user $user does not exist" >&2; exi
 hashed=$(openssl passwd -6 "$password")
 escaped_user=$(printf '%s\n' "$user" | sed 's/[.[\*^$()+?{|]/\\&/g')
 sed -i "s|^${escaped_user}:.*|${user}:${hashed}:19000:0:99999:7:::|" /etc/shadow
-mkdir -p "/home/$user/.config/openbox"
-chown -R "$user:$user" "/home/$user/.config"
-chmod 700 "/home/$user/.config/openbox"
 
-# Keep the session focused on Firefox while still giving xrdp a real window manager.
-cat > "/home/$user/.config/openbox/autostart" <<'EOF'
+# In Docker rootless mode, container UID 0 maps to the host user, not real root.
+# Volume files owned by UID 1000 map to a different host UID, so container UID 0
+# can't write to them. Run all /home operations as the target user to avoid this.
+su -s /bin/bash "$user" <<'SETUP'
+set -eu
+mkdir -p "$HOME/.config/openbox"
+cat > "$HOME/.config/openbox/autostart" <<'EOF'
 xsetroot -solid '#202124' &
 EOF
-chown "$user:$user" "/home/$user/.config/openbox/autostart"
+SETUP
 
 mkdir -p /var/run/xrdp
 rm -f /var/run/xrdp/xrdp.pid /var/run/xrdp/xrdp-sesman.pid

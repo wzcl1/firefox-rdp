@@ -1,5 +1,7 @@
 #!/bin/sh
-set -u
+# Temporarily enable trace for debugging — remove after diagnosis
+exec 2>/tmp/rdp-session-debug.log
+set -x
 
 export MOZ_ENABLE_WAYLAND=0
 export NO_AT_BRIDGE=1

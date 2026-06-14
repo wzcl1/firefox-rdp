@@ -19,10 +19,16 @@ password="$RDP_PASSWORD"
 # With read_only: false the overlay is writable, so groupadd/useradd work.
 if ! id "$user" >/dev/null 2>&1; then
     if ! getent group "$user" >/dev/null 2>&1; then
-        getent group "$gid" >/dev/null 2>&1 || groupadd -g "$gid" "$user"
+        if getent group "$gid" >/dev/null 2>&1; then
+            # GID already taken (e.g. browser:1000 from Dockerfile) — let useradd pick one
+            groupadd "$user"
+        else
+            groupadd -g "$gid" "$user"
+        fi
     fi
-    useradd -m -u "$uid" -g "$user" -s /bin/bash "$user" 2>/dev/null || true
-    id "$user" >/dev/null 2>&1 || { echo "ERROR: failed to create user $user" >&2; exit 1; }
+    # Skip UID if already taken (e.g. browser:1000 from Dockerfile)
+    getent passwd "$uid" >/dev/null 2>&1 && uid_flag="" || uid_flag="-u $uid"
+    useradd -m $uid_flag -g "$user" -s /bin/bash "$user" || { echo "ERROR: failed to create user $user" >&2; exit 1; }
 fi
 
 # Write directly to /etc/shadow to bypass PAM, which fails in read-only containers.

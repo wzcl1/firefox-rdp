@@ -18,7 +18,9 @@ password="$RDP_PASSWORD"
 # Create user if it doesn't exist (needed for custom RDP_USER values).
 # With read_only: false the overlay is writable, so groupadd/useradd work.
 if ! id "$user" >/dev/null 2>&1; then
-    getent group "$user" >/dev/null 2>&1 || groupadd -g "$gid" "$user"
+    if ! getent group "$user" >/dev/null 2>&1; then
+        getent group "$gid" >/dev/null 2>&1 || groupadd -g "$gid" "$user"
+    fi
     useradd -m -u "$uid" -g "$user" -s /bin/bash "$user" 2>/dev/null || true
     id "$user" >/dev/null 2>&1 || { echo "ERROR: failed to create user $user" >&2; exit 1; }
 fi

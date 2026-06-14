@@ -1,5 +1,5 @@
 #!/bin/sh
-set -eu
+set -u
 
 export MOZ_ENABLE_WAYLAND=0
 export NO_AT_BRIDGE=1
@@ -199,7 +199,9 @@ sleep 1
 # Log DISPLAY for debugging
 echo "[rdp-session] DISPLAY=${DISPLAY:-<unset>} PROFILE=$PROFILE_DIR" >&2
 
-firefox --no-remote --new-instance --no-sandbox --profile "$PROFILE_DIR" ${FIREFOX_ARGS:-} "${FIREFOX_START_URL:-about:blank}" &
+firefox --no-remote --new-instance --no-sandbox --profile "$PROFILE_DIR" ${FIREFOX_ARGS:-} "${FIREFOX_START_URL:-about:blank}" > /tmp/firefox.log 2>&1 &
 firefox_pid=$!
 echo "$firefox_pid" > /tmp/firefox.pid
+echo "[rdp-session] Firefox started with PID $firefox_pid" >&2
 wait "$firefox_pid"
+echo "[rdp-session] Firefox exited with code $?" >&2

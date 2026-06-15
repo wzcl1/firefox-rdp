@@ -220,7 +220,8 @@ done
 # Log DISPLAY for debugging
 echo "[rdp-session] DISPLAY=${DISPLAY:-<unset>} PROFILE=$PROFILE_DIR" >&2
 
-firefox --no-remote --new-instance --profile "$PROFILE_DIR" ${FIREFOX_ARGS:-} "${FIREFOX_START_URL:-about:blank}" > /tmp/firefox.log 2>&1 &
+set -- ${FIREFOX_ARGS:-}
+firefox --no-remote --new-instance --profile "$PROFILE_DIR" "$@" "${FIREFOX_START_URL:-about:blank}" > /tmp/firefox.log 2>&1 &
 firefox_pid=$!
 echo "$firefox_pid" > /tmp/firefox.pid
 echo "[rdp-session] Firefox started with PID $firefox_pid" >&2

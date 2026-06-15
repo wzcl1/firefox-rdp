@@ -23,9 +23,8 @@ services:
       - SETGID
       - DAC_READ_SEARCH
       - CHOWN
-    # xrdp writes to /etc (shadow via sed), /tmp, /var, /run (tmpfs) and
-    # /home/RDP_USER (named volume).
-    read_only: false
+    # Writable rootfs required: entrypoint writes to /etc (shadow via sed),
+    # /home/$user (profile init). /tmp, /var, /run are tmpfs with bounded sizes.
     tmpfs:
       - /tmp:size=512m,mode=1777
       - /var:size=128m,mode=0755

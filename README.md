@@ -16,6 +16,8 @@ Useful for:
 
 ## Quick Start
 
+> **⚠️ Before exposing this port:** Change `RDP_PASSWORD` in `docker-compose.yml` from the default `change-me` to a strong password. The default is for local testing only.
+
 ```sh
 git clone https://github.com/wzcl1/firefox-rdp.git
 cd firefox-rdp

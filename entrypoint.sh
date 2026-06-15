@@ -20,9 +20,7 @@ password="$RDP_PASSWORD"
 # on overlay filesystems due to file locking (same reason we bypass PAM for shadow).
 if ! id "$user" >/dev/null 2>&1; then
     # Find a free GID/UID if the requested ones are taken
-    if getent group "$user" >/dev/null 2>&1; then
-        grp_line=$(getent group "$user")
-    else
+    if ! getent group "$user" >/dev/null 2>&1; then
         if getent group "$gid" >/dev/null 2>&1; then
             gid=$(awk -F: '{print $3+1}' /etc/group | sort -n | tail -1)
             [ "$gid" -lt 1000 ] && gid=1001

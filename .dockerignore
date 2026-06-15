@@ -4,5 +4,6 @@
 !rdp-session.sh
 !rdp-watchdog.sh
 !docker-compose.yml
+!policies.json
 !README.md
 !xorg.conf

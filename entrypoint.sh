@@ -60,6 +60,7 @@ EOF
 # Pre-create Firefox profile directory and profiles.ini.
 # Firefox runs as the session user (browser) but the volume may have
 # stale root-owned dirs from previous runs. Fix ownership here.
+chown "$(id -u "$user"):$(id -g "$user")" "/home/$user" 2>/dev/null || true
 FF_PROFILE="/home/$user/.mozilla/firefox"
 mkdir -p "$FF_PROFILE/default-release" 2>/dev/null || true
 chmod -R 700 "/home/$user/.mozilla" 2>/dev/null || true

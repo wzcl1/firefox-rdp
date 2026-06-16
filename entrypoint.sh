@@ -62,10 +62,10 @@ EOF
 # stale root-owned dirs from previous runs. Fix ownership here.
 chown "$(id -u "$user"):$(id -g "$user")" "/home/$user" 2>/dev/null || true
 FF_PROFILE="/home/$user/.mozilla/firefox"
-mkdir -p "$FF_PROFILE/default-release" 2>/dev/null || true
+mkdir -p "$FF_PROFILE/default-release" || true
 chmod -R 700 "/home/$user/.mozilla" 2>/dev/null || true
 # profiles.ini tells Firefox where to find profiles
-cat > "$FF_PROFILE/profiles.ini" 2>/dev/null <<PINI || true
+cat > "$FF_PROFILE/profiles.ini" <<PINI || true
 [General]
 StartWithLastProfile=1
 

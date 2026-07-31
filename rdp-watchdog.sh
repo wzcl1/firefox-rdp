@@ -1,6 +1,7 @@
 #!/bin/sh
 set -eu
 
+FREEZE_ON_DISCONNECT="${FREEZE_ON_DISCONNECT:-true}"
 SUSPENDED=0
 FF_PIDFILE="/tmp/firefox.pid"
 FF_LOG="/tmp/firefox.log"
@@ -51,22 +52,24 @@ while true; do
         continue
     fi
 
-    if ss -tn state established 2>/dev/null | grep -q ':3389 '; then
-        if [ "$SUSPENDED" -eq 1 ]; then
-            sleep "$DEBOUNCE"
-            if ss -tn state established 2>/dev/null | grep -q ':3389 '; then
-                echo "$(date) CONNECTED -> resume Firefox" >> "$LOG"
-                kill -CONT "$FF_PID" 2>/dev/null || true
-                SUSPENDED=0
+    if [ "$FREEZE_ON_DISCONNECT" = "true" ]; then
+        if ss -tn state established 2>/dev/null | grep -q ':3389 '; then
+            if [ "$SUSPENDED" -eq 1 ]; then
+                sleep "$DEBOUNCE"
+                if ss -tn state established 2>/dev/null | grep -q ':3389 '; then
+                    echo "$(date) CONNECTED -> resume Firefox" >> "$LOG"
+                    kill -CONT "$FF_PID" 2>/dev/null || true
+                    SUSPENDED=0
+                fi
             fi
-        fi
-    else
-        if [ "$SUSPENDED" -eq 0 ]; then
-            sleep "$DEBOUNCE"
-            if ! ss -tn state established 2>/dev/null | grep -q ':3389 '; then
-                echo "$(date) DISCONNECTED -> freeze Firefox" >> "$LOG"
-                kill -STOP "$FF_PID" 2>/dev/null || true
-                SUSPENDED=1
+        else
+            if [ "$SUSPENDED" -eq 0 ]; then
+                sleep "$DEBOUNCE"
+                if ! ss -tn state established 2>/dev/null | grep -q ':3389 '; then
+                    echo "$(date) DISCONNECTED -> freeze Firefox" >> "$LOG"
+                    kill -STOP "$FF_PID" 2>/dev/null || true
+                    SUSPENDED=1
+                fi
             fi
         fi
     fi

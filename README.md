@@ -55,6 +55,7 @@ Environment variables in `docker-compose.yml`:
 | `RDP_PASSWORD`      | `change-me`     | Linux/RDP password (container refuses to start if unset; docker-compose.yml includes a default for quick start) |
 | `FIREFOX_START_URL` | `about:blank`   | URL opened when the RDP session starts|
 | `FIREFOX_ARGS`      | `""`            | Extra Firefox CLI arguments           |
+| `FREEZE_ON_DISCONNECT` | `true`       | Freeze Firefox (SIGSTOP) on RDP disconnect to use zero CPU. Set to `false` to keep Firefox running when disconnected. |
 | `FIREFOX_PROCESSES` | auto-detect     | Override `dom.ipc.processCount` (default: scaled by RAM) |
 | `FIREFOX_CACHE_MB`  | auto-detect     | Override `browser.cache.memory.capacity` in MB (default: scaled by RAM) |
 
@@ -128,6 +129,8 @@ When you disconnect from RDP (close the client, network drop, etc.), a watchdog 
 
 When you reconnect, the watchdog detects the new TCP connection and sends `SIGCONT` to resume Firefox exactly where you left it.
 
+This behaviour is controlled by the `FREEZE_ON_DISCONNECT` environment variable (default: `true`). Set it to `false` in `docker-compose.yml` to keep Firefox running when disconnected — useful if you want background processes or downloads to continue during disconnection.
+
 | Behaviour | Detail |
 |-----------|--------|
 | Detection | Polls `ss -tn state established | grep ':3389 '` every 2 seconds |
@@ -137,6 +140,7 @@ When you reconnect, the watchdog detects the new TCP connection and sends `SIGCO
 | Memory | Stays in RAM (not swapped to disk) |
 | Log | Bounded to 1MB with automatic rotation |
 | Profile | Persists across disconnect/reconnect and container restart via Docker volume |
+| Config | `FREEZE_ON_DISCONNECT=true` (default) to freeze, `false` to keep running |
 
 This is transparent to the user — connect, browse, disconnect, reconnect, and your tabs are exactly where you left them.
 

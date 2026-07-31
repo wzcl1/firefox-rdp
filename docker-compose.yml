@@ -8,6 +8,7 @@ services:
       RDP_USER: browser
       RDP_PASSWORD: change-me
       FIREFOX_START_URL: about:blank
+      FREEZE_ON_DISCONNECT: "true"
     shm_size: "2gb"
     mem_limit: "4gb"
     restart: unless-stopped

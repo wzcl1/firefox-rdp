@@ -15,6 +15,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     RDP_USER=browser \
     FIREFOX_START_URL=about:blank \
     FIREFOX_ARGS="" \
+    FREEZE_ON_DISCONNECT=true \
     LANG=C.UTF-8 \
     LC_ALL=C.UTF-8
 

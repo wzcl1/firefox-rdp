@@ -29,6 +29,7 @@ RUN apt-get update \
         fonts-dejavu \
         fonts-liberation \
         libasound2 \
+        libavcodec61 \
         libdbus-glib-1-2 \
         libgtk-3-0 \
         libpulse0 \

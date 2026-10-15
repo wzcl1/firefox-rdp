@@ -60,6 +60,18 @@ EOF
 # Pre-create Firefox profile directory and profiles.ini.
 # Firefox runs as the session user (browser) but the volume may have
 # stale root-owned dirs from previous runs. Fix ownership here.
+# NOTE: docker-compose.yml mounts the named volume at /home/browser.
+# If RDP_USER is customised, update the volume mount to match
+# (e.g. firefox-profile:/home/<user>), otherwise the profile will be
+# ephemeral and live on the container overlay.
+if [ "$user" != "browser" ]; then
+    echo "WARNING: RDP_USER=$user but the default volume mounts /home/browser." >&2
+    echo "WARNING: update docker-compose.yml volumes to firefox-profile:/home/$user for persistence." >&2
+fi
+# Ensure the home dir exists BEFORE chown so fresh (ephemeral or new-volume)
+# homes don't depend on DAC_OVERRIDE. Pre-existing user-owned volumes
+# still need DAC_OVERRIDE for the mkdirs below (see docker-compose.yml).
+mkdir -p "/home/$user" 2>/dev/null || true
 chown "$(id -u "$user"):$(id -g "$user")" "/home/$user" 2>/dev/null || true
 FF_PROFILE="/home/$user/.mozilla/firefox"
 mkdir -p "$FF_PROFILE/default-release" || true

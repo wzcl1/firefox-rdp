@@ -115,7 +115,6 @@ user_pref("webgl.disabled", true);
 user_pref("layers.acceleration.disabled", true);
 user_pref("dom.ipc.processCount", ${FIREFOX_PROCESSES});
 user_pref("dom.ipc.processCount.webIsolated", 1);
-user_pref("media.rdd-process.enabled", false);
 user_pref("browser.sessionhistory.max_entries", 10);
 user_pref("browser.sessionstore.interval", 30000);
 user_pref("browser.sessionstore.max_tabs_undo", 0);
